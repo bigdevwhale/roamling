@@ -202,7 +202,7 @@ class FogOverlay(private val ctx: Context, private val fog: FogStore, private va
     private fun drawDistricts(c: Canvas, s: Scene, mx0: Double, mx1: Double, my0: Double, my1: Double) {
         val n = 1 shl Grid.SECTOR_Z
         val sizePx = ax / n
-        if (sizePx < 40 * density) return
+        if (sizePx < 24 * density) return
         val x0 = floor(mx0 * n).toInt(); val x1 = floor(mx1 * n).toInt()
         val y0 = floor(my0 * n).toInt(); val y1 = floor(my1 * n).toInt()
         if ((x1 - x0 + 1) * (y1 - y0 + 1) > 400) return
@@ -215,8 +215,9 @@ class FogOverlay(private val ctx: Context, private val fog: FogStore, private va
             val kind = seal?.let { n -> app.roamling.domain.Spirit.entries.firstOrNull { it.seal == n } } ?: s.kinds[k]?.let { app.roamling.domain.Spirit.entries[it] }
             val col = kind?.color?.toInt() ?: 0xFF7A4A22.toInt()
             fill.shader = null; fill.maskFilter = null
-            if (seal != null) { fill.color = 0x30E5B04A; c.drawRect(l, t, r, b, fill) }
-            else if (kind != null) { fill.color = (col and 0x00FFFFFF) or 0x24000000; c.drawRect(l, t, r, b, fill) }
+            // each district wears its kind's colour over the map: green parks, blue water, brick yards, slate hills, amber crossroads
+            if (kind != null) { fill.color = (col and 0x00FFFFFF) or (if (seal != null) 0x52000000 else 0x3A000000); c.drawRect(l, t, r, b, fill) }
+            if (seal != null) { fill.color = 0x22FFD27A; c.drawRect(l, t, r, b, fill) }
             val here = k == s.hereDistrict
             line.color = (col and 0x00FFFFFF) or (if (here || seal != null) 0xDD000000.toInt() else 0x88000000.toInt())
             line.strokeWidth = (if (here) 3f else 1.6f) * density

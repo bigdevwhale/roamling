@@ -110,7 +110,7 @@ fun MapScreen(d: Data, nav: Nav, live: Live) {
     }
     LaunchedEffect(dark) {
         map.overlayManager.tilesOverlay.setColorFilter(if (dark) nightTiles() else softTiles())
-        map.overlayManager.tilesOverlay.loadingBackgroundColor = if (dark) 0xFF1E1810.toInt() else 0xFFE8DCBE.toInt()
+        map.overlayManager.tilesOverlay.loadingBackgroundColor = if (dark) 0xFF1A1E22.toInt() else 0xFFEDEFF0.toInt()
     }
     // the dot follows the phone while the map is open
     DisposableEffect(Unit) {
@@ -297,10 +297,10 @@ internal fun nightTiles(): android.graphics.ColorMatrixColorFilter {
     return android.graphics.ColorMatrixColorFilter(invert)
 }
 
-/** Day tiles, warmed and a little faded, so the fog and the creatures stand out. */
+/** Day tiles washed out to pale grey-white, so the districts' own colours carry the map (not Fogwalk's parchment). */
 internal fun softTiles(): android.graphics.ColorMatrixColorFilter {
-    val m = android.graphics.ColorMatrix(); m.setSaturation(0.55f)
-    val warm = android.graphics.ColorMatrix(floatArrayOf(1.0f, 0f, 0f, 0f, 6f, 0f, 0.96f, 0f, 0f, 2f, 0f, 0f, 0.86f, 0f, -2f, 0f, 0f, 0f, 1f, 0f))
-    m.postConcat(warm)
+    val m = android.graphics.ColorMatrix(); m.setSaturation(0f)
+    val light = android.graphics.ColorMatrix(floatArrayOf(.72f, 0f, 0f, 0f, 68f, 0f, .72f, 0f, 0f, 70f, 0f, 0f, .72f, 0f, 72f, 0f, 0f, 0f, 1f, 0f))
+    m.postConcat(light)
     return android.graphics.ColorMatrixColorFilter(m)
 }
