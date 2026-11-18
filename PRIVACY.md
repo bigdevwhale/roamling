@@ -15,4 +15,4 @@ None of these requests carries anything about you; they are cached on the phone.
 
 Notifications (eggs, wild companions, a rainbow, the step goal) are local; nothing is sent to show them.
 
-Lingvale, the village of our pet apps, can read the companions and the days through a small read-only bridge. It answers only Lingvale signed with our key, changes nothing, and the data still never leaves the phone.
+Lingvale, the village of our pet apps, can read the companions and the days through a small bridge that answers only Lingvale signed with our key. When you move to another phone with Lingvale, the bridge also hands it the same backup file the settings save, and loads such a file back after you confirm it in Lingvale; that is the only way it changes anything here. The data still never leaves the phone unless you move that file yourself.

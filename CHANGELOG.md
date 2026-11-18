@@ -6,6 +6,15 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.1.0] - 2026-11-18
+
+### Added
+- **Moving with Lingvale:** Lingvale can now gather the backups of all the family's apps into one file and load them on a new phone. Roamling hands it the same file the settings save and loads it back the same way, only when you confirm it in Lingvale. A walk in progress has to be finished first.
+
+<!-- tg
+Попутчики переезжают вместе со всей деревней: Lingvale собирает копии всех приложений в один файл и загружает их на новом телефоне.
+-->
+
 ## [1.0.1] - 2026-11-18
 
 ### Added
