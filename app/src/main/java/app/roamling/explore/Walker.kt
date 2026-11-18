@@ -145,6 +145,22 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
 
     suspend fun awaitReady() = ready.await()
 
+    /**
+     * Swaps all the progress for a backup's: no fix runs meanwhile, and afterwards the fog and the walk are read anew.
+     * Refused (false) during a walk.
+     */
+    suspend fun replaceAll(swap: suspend () -> Unit): Boolean = serial {
+        if (settings.now().walking) return@serial false
+        val old = db.dao().cellIds().toLongArray()
+        swap()
+        fog.removeAll(old)
+        db.dao().cellIds().forEach { fog.add(it) }
+        fog.changed()
+        walk = null; skyMeters.clear()
+        _live.update { it.copy(walk = null, trail = emptyList(), eaten = emptyMap()) }
+        true
+    }
+
     fun submit(fix: Fix) { scope.launch { serial { process(fix) } } }
 
     /** Debug builds: walks from the dot to a point at a stroll, a fix every 8 m, as if the phone went there. */

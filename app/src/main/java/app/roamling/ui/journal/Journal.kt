@@ -81,8 +81,12 @@ fun JournalScreen(d: Data, nav: Nav) {
     Column(Modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp)) {
         app.roamling.ui.art.Banner("banner_journal", tr("Дневник", "Journal"),
             tr("${fmt1(d.km)} км · прогулок ${d.walks.size} · марок ${d.stamps.size}/12", "${fmt1(d.km)} km · ${d.walks.size} walks · ${d.stamps.size}/12 stamps"), Modifier.padding(top = 8.dp)) {
-            Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xCCFBF5E4)).clickable { nav.push(Screen.Settings) }, contentAlignment = Alignment.Center) {
-                app.roamling.ui.components.Icon(app.roamling.ui.components.Icons.GEAR, Color(0xFF2E2618), 24.dp) }
+            Row(horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xCCFBF5E4)).clickable { nav.sheet = "cards" }, contentAlignment = Alignment.Center) {
+                    app.roamling.ui.components.Icon(app.roamling.ui.components.Icons.SHARE, Color(0xFF2E2618), 22.dp) }
+                Box(Modifier.size(40.dp).clip(androidx.compose.foundation.shape.CircleShape).background(Color(0xCCFBF5E4)).clickable { nav.push(Screen.Settings) }, contentAlignment = Alignment.Center) {
+                    app.roamling.ui.components.Icon(app.roamling.ui.components.Icons.GEAR, Color(0xFF2E2618), 24.dp) }
+            }
         }
         Segments(listOf(tr("Летопись", "Chronicle"), tr("Прогулки", "Walks"), tr("Марки", "Stamps"), tr("Подвиги", "Deeds"), tr("Итоги", "Totals")), tab, Modifier.padding(top = 6.dp)) { tab = it }
         val c = androidx.compose.ui.platform.LocalContext.current.let { (it.applicationContext as app.roamling.RoamlingApp).container }
@@ -219,7 +223,7 @@ fun WalkPage(id: Long, d: Data, nav: Nav) {
     val w = d.walks.firstOrNull { it.id == id } ?: run { nav.pop(); return }
     val route by produceState<List<Waypoint>>(emptyList(), id) { value = c.dao.route(id) }
     val finds = d.finds.filter { it.at in w.start..w.end }
-    Page(fmtDayYear(dayOf(w.start)), { nav.pop() }) {
+    Page(fmtDayYear(dayOf(w.start)), { nav.pop() }, action = { ShareButton { nav.sheet = "cards:walk:${w.id}" } }) {
         Box(Modifier.fillMaxWidth().height(240.dp).card(), contentAlignment = Alignment.Center) {
             if (route.size >= 2) Route(route, Modifier.fillMaxSize().padding(16.dp)) else Empty(tr("Маршрута нет", "No route"))
             Pic("stamp_${(skyOf(w) ?: Sky.CLOUDS).stamp}", 60.dp, Modifier.align(Alignment.TopEnd).padding(8.dp))
@@ -257,5 +261,13 @@ private fun Route(pts: List<Waypoint>, modifier: Modifier) {
         val p = Path().apply { pts.indices.forEach { if (it == 0) moveTo(o(it).x, o(it).y) else lineTo(o(it).x, o(it).y) } }
         drawPath(p, ink, style = Stroke(4.dp.toPx(), cap = StrokeCap.Round))
         drawCircle(Color(0xFF4F8A5B), 6.dp.toPx(), o(0)); drawCircle(Color(0xFFC4533A), 6.dp.toPx(), o(pts.lastIndex))
+    }
+}
+
+/** The postcard button in a page's top bar. */
+@Composable
+fun ShareButton(onClick: () -> Unit) {
+    Box(Modifier.size(44.dp).clip(androidx.compose.foundation.shape.CircleShape).clickable(onClick = onClick), contentAlignment = Alignment.Center) {
+        app.roamling.ui.components.Icon(app.roamling.ui.components.Icons.SHARE, C.ink, 22.dp)
     }
 }

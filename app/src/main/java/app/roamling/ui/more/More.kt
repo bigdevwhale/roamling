@@ -45,6 +45,11 @@ import app.roamling.ui.components.Page
 import app.roamling.ui.theme.C
 import app.roamling.ui.theme.T
 import kotlinx.coroutines.launch
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import app.roamling.domain.count
+import app.roamling.domain.fmt1
+import app.roamling.ui.components.Ghost
 
 /** A thing on the shop's shelf. */
 private class Ware(val pic: String, val title: String, val sub: String, val price: Int, val owned: Boolean, val note: String? = null, val buy: () -> Unit)
@@ -113,6 +118,52 @@ fun SettingsPage(d: Data, nav: Nav) {
         scope.launch { c.settings.update { it.copy(health = HealthSteps.READ in granted) }; c.syncHealth() }
     }
     var tab by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableIntStateOf(0) }
+    // moving to another phone: everything into one file, and back
+    val exportFile = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        c.scope.launch {
+            val ok = runCatching {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    val json = app.roamling.data.Backup.export(c.db, c.settings.now())
+                    ctx.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(json.toByteArray()) }
+                }
+            }.isSuccess
+            c.say(if (ok) tr("Прогресс сохранён в файл", "Progress saved to the file") else tr("Не удалось сохранить файл", "Couldn't save the file"))
+        }
+    }
+    var pending by remember { mutableStateOf<app.roamling.data.Backup.Parsed?>(null) }
+    val importFile = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        c.scope.launch {
+            val parsed = runCatching {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    app.roamling.data.Backup.parse(ctx.contentResolver.openInputStream(uri)!!.use { it.readBytes().toString(Charsets.UTF_8) })
+                }
+            }.getOrNull()
+            if (parsed == null) c.say(tr("Это не файл Попутчиков", "That isn't a Roamling file")) else pending = parsed
+        }
+    }
+    pending?.let { p ->
+        app.roamling.ui.components.Popup({ pending = null }) {
+            Text(tr("Загрузить прогресс?", "Load the progress?"), style = T.h2)
+            Text(tr("В файле: ${count(p.pets.count { it.stage > 0 }, "попутчик", "попутчика", "попутчиков", "companion", "companions")}, " +
+                count(p.walks.size, "прогулка", "прогулки", "прогулок", "walk", "walks") + ", ${fmt1(p.km)} км.",
+                "In the file: ${count(p.pets.count { it.stage > 0 }, "companion", "companions", "companions", "companion", "companions")}, " +
+                count(p.walks.size, "walk", "walks", "walks", "walk", "walks") + ", ${fmt1(p.km)} km."), style = T.body, modifier = Modifier.padding(top = 8.dp))
+            Text(tr("Всё, что сейчас на этом телефоне, заменится прогрессом из файла.", "Everything on this phone now will be replaced by the file's progress."),
+                style = T.small.copy(color = C.bad), modifier = Modifier.padding(top = 6.dp))
+            Row(Modifier.padding(top = 14.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Ghost(tr("Отмена", "Cancel"), Modifier.weight(1f)) { pending = null }
+                Btn(tr("Загрузить", "Load"), Modifier.weight(1f)) {
+                    pending = null
+                    c.scope.launch {
+                        val ok = runCatching { c.walker.replaceAll { app.roamling.data.Backup.restore(c.db, c.settings, p) } }.getOrElse { false }
+                        c.say(if (ok) tr("Прогресс загружен", "Progress loaded") else if (c.settings.now().walking) tr("Сначала закончите прогулку", "Finish the walk first") else tr("Не удалось загрузить файл", "Couldn't load the file"))
+                    }
+                }
+            }
+        }
+    }
     Page(tr("Настройки", "Settings"), { nav.pop() }) {
         Segments(listOf(tr("Прогулки", "Walks"), tr("Вид", "Look"), tr("О приложении", "About")), tab, Modifier.padding(top = 4.dp)) { tab = it }
         when (tab) {
@@ -142,6 +193,17 @@ fun SettingsPage(d: Data, nav: Nav) {
                 }
                 Setting("gift", tr("Уведомления", "Notifications"), tr("Яйца, тени, радуга, последний шажок", "Eggs, shadows, rainbows, the last little step")) {
                     Toggle(d.s.notify) { c.write { settings.update { it.copy(notify = !it.notify) } } }
+                }
+                Section(tr("Перенос на другой телефон", "Moving to another phone"))
+                Text(tr("Попутчики, яйца, прогулки, туман и шишки – в одном файле. На новом телефоне загрузите его здесь же.",
+                    "Companions, eggs, walks, the fog and the cones – in one file. On the new phone, load it right here."), style = T.small)
+                Setting("scroll", tr("Сохранить в файл", "Save to a file"), tr("Весь прогресс", "All the progress")) {
+                    Btn(tr("Сохранить", "Save"), small = true) { exportFile.launch("roamling-${java.time.LocalDate.now()}.json") }
+                }
+                Setting("map", tr("Загрузить из файла", "Load from a file"), tr("Заменит то, что сейчас на телефоне", "Replaces what is on the phone now")) {
+                    Btn(tr("Загрузить", "Load"), small = true) {
+                        if (d.s.walking) c.say(tr("Сначала закончите прогулку", "Finish the walk first")) else importFile.launch(arrayOf("application/json", "application/octet-stream", "text/plain", "*/*"))
+                    }
                 }
             }
             1 -> {

@@ -56,6 +56,18 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: android.content.Intent) {
         super.onNewIntent(intent)
         if (!BuildConfig.DEBUG || BuildConfig.DEMO) return
+        // `--es restore roamling.json` loads a backup put into files/ (run-as), as the settings' «Load» does
+        intent.getStringExtra("restore")?.let { name ->
+            val c = container
+            c.scope.launch {
+                val ok = runCatching {
+                    val p = app.roamling.data.Backup.parse(java.io.File(filesDir, name).readText())
+                    c.walker.replaceAll { app.roamling.data.Backup.restore(c.db, c.settings, p) }
+                }.getOrElse { android.util.Log.e("roamling", "restore", it); false }
+                c.say(if (ok) "restored" else "restore failed")
+            }
+            return
+        }
         val sim = intent.getStringExtra("sim") ?: return
         val (m, b) = sim.split(',').map { it.trim().toDouble() }
         val f = container.walker.live.value.fix ?: return

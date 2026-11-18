@@ -141,6 +141,7 @@ fun Root(s: Settings) {
                 o.startsWith("pet:") -> nav.push(Screen.PetInfo(o.drop(4).toLongOrNull() ?: data.leader?.id ?: 0))
                 o.startsWith("species:") -> nav.push(Screen.SpeciesInfo(o.drop(8)))
                 o.startsWith("walk:") -> data.walks.firstOrNull()?.let { nav.push(Screen.WalkInfo(it.id)) }
+                o.startsWith("cards") -> nav.sheet = o
             }
         }
         Start.open = null
@@ -175,6 +176,7 @@ fun Root(s: Settings) {
             "quests" -> app.roamling.ui.home.QuestSheet(data, nav)
             "call" -> app.roamling.ui.home.CallSheet(data, nav)
         }
+        nav.sheet?.takeIf { it.startsWith("cards") }?.let { k -> app.roamling.ui.share.ShareSheet(k.removePrefix("cards").removePrefix(":"), data) { nav.sheet = null } }
         val shots = app.roamling.BuildConfig.SHOTS
         val news = if (shots) null else app.roamling.ui.home.nextNews(data)
         if (nav.stack.isEmpty() && nav.sheet == null && news != null) app.roamling.ui.home.NewsSheet(news, data, nav)

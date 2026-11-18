@@ -96,7 +96,9 @@ class VillageProvider : ContentProvider() {
             val petsJson = JSONArray()
             pets.forEach { p ->
                 petsJson.put(JSONObject().put("id", p.id).put("species", p.species).put("name", p.name).put("stage", p.stage).put("progress", Growth.progress(p).toDouble())
-                    .put("slot", s.team.indexOf(p.id)).put("shiny", p.shiny).put("found", p.born).put("hatched", p.born))
+                    .put("slot", s.team.indexOf(p.id)).put("shiny", p.shiny).put("found", p.born).put("hatched", p.born)
+                    // The picture to draw: a grown companion is one of its species' forms (pet_<species>_2…5), not frame 2.
+                    .put("frame", if (p.stage > 0) Growth.frame(p) else -1))
             }
             val speciesJson = JSONArray()
             SPECIES.forEach { k ->

@@ -176,7 +176,9 @@ fun PetPage(id: Long, d: Data, nav: Nav) {
     var reform by rememberSaveable { mutableStateOf(false) }
     var gear by rememberSaveable { mutableStateOf(false) }
     val inTeam = p.id in d.s.team
-    Page(p.name, { nav.pop() }, action = { Text(tr("Имя", "Name"), style = T.smallB.copy(color = C.acc), modifier = Modifier.clickable { rename = true }.padding(12.dp)) }) {
+    Page(p.name, { nav.pop() }, action = {
+        if (p.stage > 0) app.roamling.ui.journal.ShareButton { nav.sheet = "cards:pet:${p.id}" }
+        Text(tr("Имя", "Name"), style = T.smallB.copy(color = C.acc), modifier = Modifier.clickable { rename = true }.padding(12.dp)) }) {
         val stage = listOf(tr("Яйцо", "Egg"), tr("Малыш", "Baby"), tr("Подросток", "Teen"), sp.forms[p.form.coerceAtLeast(0)].name)[p.stage]
         PetHero(p, sp, stage) { nav.push(Screen.SpeciesInfo(sp.id)) }
         if (p.stage > 0) EvolutionTree(p, sp, d)

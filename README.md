@@ -24,6 +24,7 @@ Your town lies almost all under fog – the Veil, where streets nobody walks go 
 - **The nose.** Once a day the leader picks up a scent to a real place nearby – a fountain, an old tree, a bridge – with a find waiting there.
 - **Every day and every week** – three tasks each and the leader's wish. A backpack for three, eggs warming in its pockets, a den under the old oak.
 - **Only steps on walks count:** from the phone's sensor, and if you like from your watch through Health Connect.
+- **Postcards and moving.** Share your road, a companion, a walk with its route, the bestiary or the stamps as a postcard; save all the progress to one file and load it on a new phone.
 - Nobody dies or gets ill: a missed day is just a rest in the den. Light and dark themes, Russian and English.
 
 ## Install

@@ -6,6 +6,23 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.0.1] - 2026-11-18
+
+### Added
+- **Postcards:** your road so far, the backpack, each companion in its own world, a walk with its route and weather stamp, the bestiary, the weather stamps, the den and the Great Map. Swipe between them and share. The button is in the Journal's banner, on a companion's page and on a walk's page.
+- **Moving to another phone:** Settings → Walks → save all the progress to one file (companions, eggs, walks with routes, the fog, finds, cones) and load it on the new phone.
+
+### Fixed
+- **Too many eggs in the pockets (5/2):** when the phone delivered a burst of GPS points at once (after the screen was off), each of them could find the pockets free and the same patch new. Points are now taken strictly one by one. Eggs already over the limit simply hatch; new ones come when there is room.
+- **Grown companions in Lingvale:** the village showed every grown companion in its species' first form. Now it gets the form each one grew into.
+
+<!-- tg
+Попутчики 1.0.1: открытки и перенос на другой телефон.
+Открытки – итоги пути, рюкзак, каждый попутчик, прогулка с маршрутом, бестиарий, марки погоды, логово и Большая карта. Кнопка – в Дневнике, на странице попутчика и прогулки.
+Весь прогресс можно сохранить в файл и загрузить на новом телефоне: Настройки → Прогулки.
+Исправлено: в карманах больше не набирается лишних яиц.
+-->
+
 ## [1.0.0] - 2026-11-18
 
 First release.
