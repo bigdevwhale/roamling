@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Pictures are looked up by name at run time; the shrinker must keep them. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_launcher_fg,@drawable/pet_*,@drawable/egg_*,@drawable/find_*,@drawable/decor_*,@drawable/gear_*,@drawable/stamp_*,@drawable/ic_*,@drawable/cloud_*,@drawable/place_*,@drawable/spirit_*,@drawable/seal_*,@drawable/habitat_*,@drawable/prologue_*,@drawable/banner_*,@drawable/bench_bg,@drawable/den_bg" />

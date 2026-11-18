@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <include domain="database" path="roamling.db" />
+    <include domain="file" path="datastore/roamling.preferences_pb" />
+    <include domain="file" path="tastes/" />
+</full-backup-content>
