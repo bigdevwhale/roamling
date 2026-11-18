@@ -1,6 +1,11 @@
 package app.roamling.explore
 
 import app.roamling.data.Cell
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlin.coroutines.AbstractCoroutineContextElement
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.coroutineContext
 import app.roamling.data.Day
 import app.roamling.data.Db
 import app.roamling.data.Entry
@@ -99,6 +104,15 @@ sealed interface Event {
 @OptIn(ExperimentalCoroutinesApi::class)
 class Walker(private val db: Db, private val settings: SettingsStore, val fog: FogStore, private val scope: CoroutineScope) {
     private val worker = Dispatchers.Default.limitedParallelism(1)
+    /**
+     * One thing at a time, for real: the single worker alone lets a fix that waits on the database be overtaken by the next
+     * one, and a burst of fixes then finds the same pocket free and the same patch new. Re-entered calls pass straight through.
+     */
+    private val lock = Mutex()
+    private class Held : AbstractCoroutineContextElement(Held) { companion object : CoroutineContext.Key<Held> }
+    private suspend fun <T> serial(block: suspend () -> T): T =
+        if (coroutineContext[Held] != null) block()
+        else { ready.await(); withContext(worker + Held()) { lock.withLock { block() } } }
     private val ready = CompletableDeferred<Unit>()
     private val _live = MutableStateFlow(Live())
     val live: StateFlow<Live> = _live
@@ -118,7 +132,7 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
     private var stepsSyncedAt = 0L
 
     fun load() {
-        scope.launch(worker) {
+        scope.launch(worker + Held()) { lock.withLock {
             val dao = db.dao()
             dao.cellIds().forEach { fog.add(it) }
             fog.changed()
@@ -126,12 +140,12 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
             if (s.walking) walk = dao.walkList().firstOrNull { it.id == s.walkId }
             if (s.lastLat != 0.0 || s.lastLon != 0.0) _live.update { it.copy(fix = Fix(s.lastLat, s.lastLon, 9999f, 0), walk = walk) }
             ready.complete(Unit)
-        }
+        } }
     }
 
     suspend fun awaitReady() = ready.await()
 
-    fun submit(fix: Fix) { scope.launch(worker) { ready.await(); process(fix) } }
+    fun submit(fix: Fix) { scope.launch { serial { process(fix) } } }
 
     /** Debug builds: walks from the dot to a point at a stroll, a fix every 8 m, as if the phone went there. */
     fun simulateTo(lat: Double, lon: Double) {
@@ -151,7 +165,7 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
     // ------------------------------------------------------------------ walks
 
     /** The «Walk» button: a new walk begins. */
-    suspend fun startWalk(): Walk = withContext(worker) {
+    suspend fun startWalk(): Walk = serial {
         ready.await()
         val now = System.currentTimeMillis()
         val f = _live.value.fix
@@ -165,7 +179,7 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
     }
 
     /** The walk ends: its weather stamp is set; a walk of nothing is dropped. */
-    suspend fun stopWalk() = withContext(worker) {
+    suspend fun stopWalk() = serial {
         if (walk != null) syncWalkSteps()
         val w = walk ?: db.dao().walkList().firstOrNull { it.id == settings.now().walkId }
         if (w != null) {
@@ -336,11 +350,11 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
     }
 
     /** Points to the backpack for steps not yet counted on [day]. */
-    suspend fun feedSteps(day: Long) = withContext(worker) {
+    suspend fun feedSteps(day: Long) = serial {
         ready.await()
         val dao = db.dao()
-        val row = dao.day(day) ?: return@withContext
-        if (row.steps <= row.fed) return@withContext
+        val row = dao.day(day) ?: return@serial
+        if (row.steps <= row.fed) return@serial
         val n = row.steps - row.fed
         dao.upsert(row.copy(fed = row.steps))
         val s = settings.now()
@@ -361,11 +375,10 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
 
     /** Steps from the pedometer: only a walk's steps count – to the walk and its day. */
     fun addSteps(n: Int, at: Long) {
-        scope.launch(worker) {
-            ready.await()
-            val w = walk ?: return@launch
+        scope.launch { serial {
+            val w = walk ?: return@serial
             walkStepsTo(w.steps + n, at)
-        }
+        } }
     }
 
     /** Sets the walk's steps to [total] if that is more, adding the difference to the day and to growth. */
@@ -385,12 +398,12 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
      * The walk's steps from Health Connect, when it is chosen: what a watch or a band counted between the walk's start
      * and now. The larger of it and the phone's own count stands, so nothing is counted twice.
      */
-    suspend fun syncWalkSteps() = withContext(worker) {
-        val w = walk ?: return@withContext
-        val read = walkSteps ?: return@withContext
+    suspend fun syncWalkSteps() = serial {
+        val w = walk ?: return@serial
+        val read = walkSteps ?: return@serial
         val now = System.currentTimeMillis()
         stepsSyncedAt = now
-        val n = read(w.start, now) ?: return@withContext
+        val n = read(w.start, now) ?: return@serial
         walkStepsTo(min(n, 70_000L).toInt(), now)
     }
 
@@ -490,14 +503,14 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
     }
 
     /** A lure: one of the wild ones that may come now shows up close by. False when none may come. */
-    suspend fun lure(): Boolean = withContext(worker) {
+    suspend fun lure(): Boolean = serial {
         val s = settings.now()
-        val f = _live.value.fix ?: return@withContext false
-        if (s.lures <= 0 || !s.walking) return@withContext false
+        val f = _live.value.fix ?: return@serial false
+        if (s.lures <= 0 || !s.walking) return@serial false
         val at = System.currentTimeMillis()
         val (rise, set) = sun(at, f.lat, f.lon, WeatherApi.last())
         val cands = nowAt(at, f.lat, Tastes.of(Tastes.patchOf(f.lat, f.lon)), rise, set).wilds().filter { it.group != Group.LEGEND }
-        if (cands.isEmpty()) return@withContext false
+        if (cands.isEmpty()) return@serial false
         settings.update { it.copy(lures = it.lures - 1) }
         spawn(cands.random().id, f.lat, f.lon, at, true)
         true
@@ -517,7 +530,7 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
      * met there; the spirit seals it on the Great Map. The globe egg comes at 100 km. When the home district is sealed and
      * all twelve letters have come, the Keeper of the fog comes out.
      */
-    suspend fun storyCheck(sector: Long? = null) = withContext(worker) {
+    suspend fun storyCheck(sector: Long? = null) = serial {
         ready.await()
         val dao = db.dao()
         val s = settings.now()
