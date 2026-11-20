@@ -77,7 +77,6 @@ object Notes {
             is Event.Hatched -> post(ctx, 11, tr("Вылупился!", "Hatched!"), tr("${Catalog[e.pet.species].name} – новый попутчик.", "${Catalog[e.pet.species].name} – a new companion."))
             is Event.Grew -> post(ctx, 12, tr("${e.pet.name} подрос", "${e.pet.name} has grown"), if (e.pet.stage == 3) tr("Взрослая форма: ${Catalog[e.pet.species].forms[e.pet.form.coerceAtLeast(0)].name}", "Grown form: ${Catalog[e.pet.species].forms[e.pet.form.coerceAtLeast(0)].name}") else tr("Теперь подросток – ест то, где вы гуляете.", "A teen now – it eats where you walk."))
             is Event.Joined -> post(ctx, 13, tr("Новый попутчик", "A new companion"), tr("${Catalog[e.pet.species].name} пошёл с вами.", "${Catalog[e.pet.species].name} came along."))
-            is Event.Again -> post(ctx, 13, tr("Старый знакомый", "An old friend"), tr("${e.pet.name} уже с вами – встреча прибавила ему сил и сердечко.", "${e.pet.name} is already with you – the meeting made it stronger and closer."))
             is Event.Found -> post(ctx, 14, tr("Находка", "A find"), Finds.name(e.find.item))
             is Event.ShadowNear -> post(ctx, 15, tr("Кто-то рядом", "Someone's near"), tr("Тень на карте в ${e.meters} м. Подойдите ближе.", "A shadow on the map ${e.meters} m away. Come closer."))
             is Event.CallDone -> post(ctx, 16, tr("Зов исполнен", "Wish come true"), e.call.title)
