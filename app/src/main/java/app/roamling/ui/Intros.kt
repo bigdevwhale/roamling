@@ -65,7 +65,7 @@ fun introFor(top: Screen?, tab: Int, sheet: String?, walking: Boolean): Intro? =
         "map" to ru("Строка вверху – ваша глава: сколько пройдено и сколько писем.", "The line at the top is your chapter: how far you've got and how many letters."),
         "door" to ru("«Логово» вверху – там отдыхают остальные.", "«Den» at the top – where the rest relax.")))
     tab == 1 && walking -> Intro("i.walking", "boots", ru("Прогулка идёт", "Walk under way"), listOf(
-        "map" to ru("Туман тает вокруг вас. Каждый новый клочок (~100 м) – свежая еда, впятеро сытнее шагов.", "The fog lifts around you. Each new patch (~100 m) is fresh food, five times richer than steps."),
+        "map" to ru("Туман тает вокруг вас. Попутчики растут от прогулок, и лучше всего их кормят новые места: клочок (~100 м), где вы ещё не были, сытнее, чем шаги по знакомым улицам, раз в пять.", "The fog lifts around you. Companions grow from walks, and new places feed them best: a patch (~100 m) you've never been to is about five times richer than steps on familiar streets."),
         "leaf" to ru("Вверху – вкус места под ногами. Внизу – что съели попутчики за прогулку.", "At the top – the taste of the ground underfoot. Below – what the companions ate on this walk."),
         "moon" to ru("Тени на карте – дикие попутчики. Подойдите – и они пойдут с вами.", "Shadows on the map are wild ones. Come close and they'll join you."),
         "boots" to ru("Можно убрать телефон: прогулка идёт и с выключенным экраном.", "You can pocket the phone: the walk goes on with the screen off.")))

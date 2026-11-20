@@ -106,6 +106,10 @@ class FogOverlay(private val ctx: Context, private val fog: FogStore, private va
         if (mx1 - mx0 <= 0 || my1 - my0 <= 0) return
         ax = (se.x - nw.x) / (mx1 - mx0); bx = nw.x - ax * mx0
         ay = (se.y - nw.y) / (my1 - my0); by = nw.y - ay * my0
+        // a turned map (#3) shows the corners of a bigger square: the fog reaches the screen's diagonal then
+        val d = kotlin.math.hypot(w.toDouble(), h.toDouble())
+        padX = if (mv.mapOrientation % 360f != 0f) (d - w) / 2 else 0.0
+        padY = if (mv.mapOrientation % 360f != 0f) (d - h) / 2 else 0.0
         drawFog(c, s, w, h)
         hits.clear()
         drawDistricts(c, s, mx0, mx1, my0, my1)
@@ -119,8 +123,11 @@ class FogOverlay(private val ctx: Context, private val fog: FogStore, private va
         drawWalker(c, s, t)
     }
 
+    private var padX = 0.0
+    private var padY = 0.0
+
     private fun drawFog(c: Canvas, s: Scene, w: Int, h: Int) {
-        val key = listOf(fog.version.value, s.dark, s.warm, w, h)
+        val key = listOf(fog.version.value, s.dark, s.warm, w, h, padX > 0)
         val now = android.os.SystemClock.uptimeMillis()
         if (ax != lastAx) zoomedAt = now
         lastAx = ax
@@ -129,7 +136,7 @@ class FogOverlay(private val ctx: Context, private val fog: FogStore, private va
         val rebuild = bmp == null || key != fogKey || run {
             val l = ax * cacheOx + bx; val t = ay * cacheOy + by
             val r = l + bmp.width * scale * ratio; val b = t + bmp.height * scale * (ay / cacheAy)
-            val covers = l <= 0 && t <= 0 && r >= w && b >= h
+            val covers = l <= -padX && t <= -padY && r >= w + padX && b >= h + padY
             val settled = abs(ratio - 1) > 0.002 && now - zoomedAt > 220
             !covers || ratio !in 0.7..1.45 || settled
         }
@@ -141,7 +148,7 @@ class FogOverlay(private val ctx: Context, private val fog: FogStore, private va
     }
 
     private fun render(s: Scene, w: Int, h: Int) {
-        val margin = max(w, h) * 0.3
+        val margin = max(w, h) * 0.3 + max(padX, padY)
         cacheAx = ax; cacheAy = ay
         val ux = scale / ax; val uy = scale / ay
         cacheOx = floor(((-margin - bx) / ax) / ux) * ux

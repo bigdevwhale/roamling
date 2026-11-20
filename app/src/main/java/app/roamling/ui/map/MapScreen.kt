@@ -1,5 +1,6 @@
 package app.roamling.ui.map
 
+import androidx.compose.foundation.layout.navigationBarsPadding
 import android.Manifest
 import android.os.Build
 import androidx.compose.foundation.background
@@ -102,6 +103,8 @@ fun MapScreen(d: Data, nav: Nav, live: Live) {
             isTilesScaledToDpi = true
             minZoomLevel = 4.0; maxZoomLevel = 19.5
             isHorizontalMapRepetitionEnabled = false; isVerticalMapRepetitionEnabled = false
+            // two fingers turn the map once they plainly twist, as in Fogwalk (#3); the compass sets north back up
+            overlays.add(TwistRotation(this))
             overlays.add(overlay)
             val f = live.fix
             if (f != null) { controller.setZoom(16.5); controller.setCenter(GeoPoint(f.lat, f.lon)) } else controller.setZoom(4.0)
@@ -161,8 +164,14 @@ fun MapScreen(d: Data, nav: Nav, live: Live) {
     Box(Modifier.fillMaxSize()) {
         AndroidView({ map }, Modifier.fillMaxSize())
         Column(Modifier.align(Alignment.TopEnd).statusBarsPadding().padding(12.dp)) {
-            RoundBtn("compass") { follow = true; fix?.let { map.controller.animateTo(GeoPoint(it.lat, it.lon)) } }
+            RoundBtn("compass") { follow = true; map.mapOrientation = 0f; fix?.let { map.controller.animateTo(GeoPoint(it.lat, it.lon)) } }
             if (sc != null) RoundBtn("find_${sc.item}", pic = true) { follow = false; map.controller.animateTo(GeoPoint(sc.lat, sc.lon)) }
+        }
+        // a weak or wandering GPS is said plainly: nothing is counted until it sharpens (#2)
+        live.fix?.takeIf { it.time > 0 && it.accuracy > app.roamling.explore.Track.MAX_ACCURACY }?.let { f ->
+            Text(tr("Слабый GPS (±${f.accuracy.toInt()} м): туман и шаги не засчитываются, пока сигнал не станет точнее. Выйдите на открытое место.",
+                "Weak GPS (±${f.accuracy.toInt()} m): fog and steps don't count until it sharpens. Step into the open."),
+                style = T.small.copy(color = C.ink), modifier = Modifier.align(Alignment.BottomCenter).padding(12.dp).navigationBarsPadding().card().padding(horizontal = 12.dp, vertical = 8.dp))
         }
         Column(Modifier.align(Alignment.TopStart).statusBarsPadding().padding(12.dp)) {
             live.fix?.takeIf { it.time > 0 || BuildConfig.DEMO }?.let { f ->

@@ -110,6 +110,8 @@ class Data(val s: Settings, val pets: List<Pet>, val walks: List<Walk>, val days
     val cones = entries.sumOf { it.cones }
     val day: Day = days.lastOrNull { it.day == today } ?: Day(today)
     val call: Call = Call.of(today, WeatherApi.last())
+    /** Today's three tasks, with the swaps made (#8). */
+    val dailyQuests: List<app.roamling.domain.Quest> by lazy { app.roamling.domain.Quest.daily(today, app.roamling.domain.Quest.swapsOf(today, entries.map { it.ref })) }
     val callDone = entries.any { it.ref == "call:$today" }
     val km = walks.sumOf { it.meters } / 1000
     val monday = weekStart(today)

@@ -162,14 +162,31 @@ data class Quest(val kind: QuestKind, val target: Int, val daily: Boolean) {
     val points get() = if (daily) Growth.QUEST / 3 else Growth.QUEST
 
     companion object {
-        /** Three tasks for the day [day]. */
-        fun daily(day: Long): List<Quest> {
+        /** What cones a swap of a daily task costs (#8). */
+        const val SWAP = 15
+
+        private fun dailyPool(day: Long): List<Quest> {
             val r = Rand(hash("daily$day"))
-            val all = listOf(Quest(QuestKind.KM, 2 + r.int(2), true), Quest(QuestKind.PATCHES, 3 + r.int(4), true), Quest(QuestKind.SCENTS, 1, true),
+            return listOf(Quest(QuestKind.KM, 2 + r.int(2), true), Quest(QuestKind.PATCHES, 3 + r.int(4), true), Quest(QuestKind.SCENTS, 1, true),
                 Quest(QuestKind.MINUTES, 20 + r.int(3) * 10, true), Quest(QuestKind.WATER, 200 + r.int(3) * 100, true), Quest(QuestKind.GREEN, 500 + r.int(3) * 250, true),
                 Quest(QuestKind.STEPS, 3000 + r.int(3) * 1000, true))
-            return all.sortedBy { hash(it.ref + day) }.take(3)
         }
+
+        /** Three tasks for the day [day], with the [swaps] made that day ("old ref" to "new ref"). */
+        fun daily(day: Long, swaps: List<Pair<String, String>> = emptyList()): List<Quest> {
+            val all = dailyPool(day)
+            val picked = all.sortedBy { hash(it.ref + day) }.take(3).toMutableList()
+            for ((old, new) in swaps) { val i = picked.indexOfFirst { it.ref == old }; val n = all.firstOrNull { it.ref == new }; if (i >= 0 && n != null) picked[i] = n }
+            return picked
+        }
+
+        /** Another task for [old] (#8): of a different kind from those of the day, the same for the same day. */
+        fun swapFor(day: Long, current: List<Quest>, old: Quest, gone: Collection<String> = emptyList()): Quest? =
+            dailyPool(day).filter { q -> current.none { it.kind == q.kind } && q.ref !in gone }.minByOrNull { hash(it.ref + day + "swap" + old.ref) }
+
+        /** The swaps of [day] read back from the cone ledger's refs «swap:<day>:<old>><new>». */
+        fun swapsOf(day: Long, refs: List<String>): List<Pair<String, String>> =
+            refs.filter { it.startsWith("swap:$day:") }.mapNotNull { it.removePrefix("swap:$day:").split('>').takeIf { p -> p.size == 2 }?.let { p -> p[0] to p[1] } }
 
         /** Three tasks for the week starting [monday]. */
         fun weekly(monday: Long): List<Quest> {

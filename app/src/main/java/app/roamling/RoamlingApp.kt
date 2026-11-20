@@ -124,6 +124,11 @@ class AppContainer(context: Context) {
 
     suspend fun toDen(id: Long) = settings.update { s -> if (s.team.size <= 1) s else s.copy(team = s.team - id) }
 
+    /** Trades a daily task for another for cones (#8). */
+    suspend fun swapQuest(old: Quest, new: Quest): Boolean = lock.withLock {
+        spend("swap:${dayOf(System.currentTimeMillis())}:${old.ref}>${new.ref}", Quest.SWAP)
+    }
+
     /** A task's reward, once; [from] is its day, or the Monday of its week. */
     suspend fun claim(from: Long, q: Quest): Boolean = lock.withLock {
         if (dao.grant(Entry("quest:$from:${q.ref}", System.currentTimeMillis(), q.cones)) == -1L) return@withLock false

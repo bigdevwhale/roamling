@@ -112,8 +112,8 @@ fun ScentSheet(d: Data, nav: Nav, live: Live) {
     val sc = d.s.scent
     Sheet({ nav.sheet = null }) {
         Text(tr("Нюх", "The nose"), style = T.h2)
-        Text(tr("Раз в день вожак берёт след: что-то настоящее рядом – фонтан, старое дерево, мост, смотровая. Дойдите – там находка.",
-            "Once a day the leader picks up a scent: something real nearby – a fountain, an old tree, a bridge, a lookout. Get there for a find."), style = T.small)
+        Text(tr("Раз в день вожак берёт след: что-то настоящее рядом – фонтан, старое дерево, мост, смотровая. Дойдите – там находка. Стрелка ниже показывает, куда идти, а на карте это место отмечено значком находки.",
+            "Once a day the leader picks up a scent: something real nearby – a fountain, an old tree, a bridge, a lookout. Get there for a find. The arrow below shows the way, and on the map the place has the find's icon."), style = T.small)
         Spacer(Modifier.height(14.dp))
         if (sc.day != d.today) {
             Text(tr("След появится, когда начнётся прогулка.", "The scent appears once a walk begins."), style = T.bodyB)
@@ -177,7 +177,8 @@ fun QuestSheet(d: Data, nav: Nav) {
             else tr("Три задания на неделю: по 30 шишек и рывок роста вожаку. В понедельник появятся новые.", "Three tasks a week: 30 cones each and a growth boost for the leader. New ones on Monday."),
             style = T.small, modifier = Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(8.dp))
-        (if (tab == 0) Quest.daily(d.today) else Quest.weekly(d.monday)).forEach { q ->
+        val list = if (tab == 0) d.dailyQuests else Quest.weekly(d.monday)
+        list.forEach { q ->
             val pr = questProgress(d, q)
             val claimed = questClaimed(d, q)
             Column(Modifier.fillMaxWidth().padding(vertical = 5.dp).card().padding(12.dp)) {
@@ -191,6 +192,13 @@ fun QuestSheet(d: Data, nav: Nav) {
                         claimed -> Text("✓", style = T.h2.copy(color = C.ok))
                         pr >= 1f -> Btn(tr("Забрать", "Claim"), small = true) { c.write { if (claim(questRange(d, q).first, q)) say(tr("+${q.cones} шишек", "+${q.cones} cones")) } }
                     }
+                }
+                // a daily task that can't be done today can be traded for another (#8)
+                if (q.daily && !claimed && pr < 1f && d.dailyQuests.size == 3 && Quest.swapsOf(d.today, d.entries.map { it.ref }).none { it.second == q.ref }) {
+                    val other = Quest.swapFor(d.today, d.dailyQuests, q, Quest.swapsOf(d.today, d.entries.map { it.ref }).map { it.first })
+                    if (other != null) Text(tr("Сменить на «${other.title}» · ${Quest.SWAP} шишек", "Swap for «${other.title}» · ${Quest.SWAP} cones"),
+                        style = T.tiny.copy(color = if (d.cones >= Quest.SWAP) C.acc else C.mute),
+                        modifier = Modifier.padding(top = 6.dp).clickable(enabled = d.cones >= Quest.SWAP) { c.write { if (swapQuest(q, other)) say(tr("Задание сменено", "Task swapped")) } })
                 }
                 Meter(pr, Modifier.padding(top = 8.dp), color = if (pr >= 1f) C.gold else C.acc, h = 6.dp)
             }

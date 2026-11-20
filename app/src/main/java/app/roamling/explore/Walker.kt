@@ -87,6 +87,8 @@ sealed interface Event {
     data class Hatched(val pet: Pet) : Event
     data class Grew(val pet: Pet) : Event
     data class Joined(val pet: Pet) : Event
+    /** A wild one already in the den met again (#6, #7): no twin, the one at home grows from the meeting. */
+    data class Again(val pet: Pet) : Event
     data class Found(val find: Find) : Event
     data class ShadowNear(val species: String, val meters: Int) : Event
     data class CallDone(val call: Call) : Event
@@ -440,7 +442,9 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
             .filter { !it.group.wild }
         val roll = r.next()
         val pool = when { roll < .1f -> app.roamling.domain.Catalog.starters; roll < .75f && dwellers.isNotEmpty() -> dwellers; else -> app.roamling.domain.Catalog.of(group) }
-        val sp = pool[r.int(pool.size)]
+        val have = db.dao().petList().map { it.species }.toSet()
+        val fresh = pool.filter { it.id !in have }
+        val sp = if (fresh.isNotEmpty() && r.next() < .8f) fresh[r.int(fresh.size)] else pool[r.int(pool.size)]
         val egg = Pet(species = sp.id, name = names(sp.id), stage = 0, eggLeft = Growth.eggMeters(sp.id), eggTaste = (taste ?: Taste.GREEN).name, lat = lat, lon = lon, born = at)
         val id = db.dao().insert(egg)
         settings.update { it.copy(eggs = it.eggs + id) }
@@ -488,6 +492,15 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
         val live = s.shadows.filter { it.until > at }
         val reached = live.firstOrNull { sh -> points.any { Grid.distance(it.first, it.second, sh.lat, sh.lon) <= REACH_M + 10 } }
         if (reached != null) {
+            // one of these is already with us (#6, #7): it grows from the meeting instead of a twin coming along
+            dao.petList().filter { it.species == reached.species && it.stage > 0 }.maxByOrNull { it.stage * 1e6 + it.points }?.let { old ->
+                val grown = grow(old.copy(points = old.points + Growth.CALL, bond = (old.bond + 1).coerceAtMost(10.0)))
+                dao.update(grown)
+                dao.grant(Entry("again:$day:${reached.species}", at, 5))
+                settings.update { st -> st.copy(shadows = st.shadows - reached, met = st.met + "$day:${reached.species}") }
+                _events.tryEmit(Event.Again(grown))
+                return
+            }
             val p = Pet(species = reached.species, name = names(reached.species), stage = 1, lat = reached.lat, lon = reached.lon, shiny = Random.nextInt(16) == 0, born = at)
             val id = dao.insert(p)
             settings.update { st -> st.copy(shadows = st.shadows - reached, met = st.met + "$day:${reached.species}", team = if (st.team.size < 3) st.team + id else st.team) }
@@ -504,7 +517,10 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
         if (live.isNotEmpty() || at - lastWild < 90_000) return
         lastWild = at
         val now = nowAt(at, lat, taste, rise, set)
-        val cands = now.wilds().filter { it.group != Group.LEGEND && "$day:${it.id}" !in s.met }
+        val owned = dao.petList().filter { it.stage > 0 }.map { it.species }.toSet()
+        val maybe = now.wilds().filter { it.group != Group.LEGEND && "$day:${it.id}" !in s.met }
+        // those not in the den yet come first (#6, #7); a known one only when nobody new may come
+        val cands = maybe.filter { it.id !in owned }.ifEmpty { maybe }
         if (cands.isEmpty()) return
         // the more rarely a weather comes, the surer its guest
         if (Random.nextFloat() > .55f) return
@@ -512,8 +528,15 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
     }
 
     private suspend fun spawn(species: String, lat: Double, lon: Double, at: Long, lured: Boolean) {
-        val dist = if (lured) 70.0 else 150.0 + Random.nextDouble() * 120
-        val (la, lo) = Grid.offset(lat, lon, dist, heading + Random.nextDouble(-35.0, 35.0))
+        val want = if (lured) 70.0 else 150.0 + Random.nextDouble() * 120
+        // a point of a way already walked (a path, a pavement) at about that distance, ahead if possible (#3);
+        // only when there is none, a point straight ahead as before
+        val walked = (_live.value.trail + db.dao().allWaypoints().takeLast(20_000).map { it.lat to it.lon })
+            .filter { (a, b) -> Grid.distance(lat, lon, a, b) in want * .6..want * 1.4 }
+        fun turn(a: Double) = ((a - heading + 540) % 360) - 180
+        val onWay = walked.filter { (a, b) -> kotlin.math.abs(turn(Grid.bearing(lat, lon, a, b))) <= 70 }.ifEmpty { walked }
+        val (la, lo) = if (onWay.isNotEmpty()) onWay[Random.nextInt(onWay.size)] else Grid.offset(lat, lon, want, heading + Random.nextDouble(-35.0, 35.0))
+        val dist = Grid.distance(lat, lon, la, lo)
         settings.update { it.copy(shadows = it.shadows + Shadow(species, la, lo, at + 25 * 60_000, lured)) }
         _events.tryEmit(Event.ShadowNear(species, dist.toInt()))
     }

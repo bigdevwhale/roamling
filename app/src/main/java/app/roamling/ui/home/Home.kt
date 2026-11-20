@@ -185,7 +185,7 @@ private fun RestStop(d: Data, nav: Nav, w: Weather?, night: Float, now: Long) {
             val first = firstSteps(d)
             val text = first ?: if (storyTurn && story != null) story else if (d.callDone) tr("Сегодня было здорово!", "Today was lovely!") else d.call.title
             Box(Modifier.align(Alignment.TopCenter).padding(top = 12.dp).offset(y = (y(.70f) - W * .23f - 70.dp).coerceAtLeast(8.dp)).widthIn(max = 260.dp)
-                .card().tap { if (storyTurn && story != null) nav.tab = 3 else nav.sheet = "call" }.padding(horizontal = 14.dp, vertical = 9.dp)) {
+                .card().tap { when { text == tr(SCENT_HINT_RU, SCENT_HINT_EN) -> nav.sheet = "scent"; first != null -> nav.sheet = "call"; storyTurn && story != null -> nav.tab = 3; else -> nav.sheet = "call" } }.padding(horizontal = 14.dp, vertical = 9.dp)) {
                 Text(text, style = T.bodyB, textAlign = TextAlign.Center, maxLines = 3, overflow = TextOverflow.Ellipsis)
             }
         }
@@ -217,12 +217,16 @@ private fun ChapterLine(d: Data) {
     }
 }
 
+/** The leader's first scent: a tap on the bubble opens the nose (#4). */
+private const val SCENT_HINT_RU = "Я что-то чую! Нажми на меня – покажу, куда идти по следу."
+private const val SCENT_HINT_EN = "I smell something! Tap me and I'll show you which way the scent goes."
+
 /** The first steps, told by the leader until they are done. */
 private fun firstSteps(d: Data): String? = when {
     d.walks.isEmpty() -> tr("Первый шаг: нажмём «Гулять» внизу – и выйдем в туман?", "First step: press «Walk» below – shall we go out into the fog?")
     d.patches < 10 -> tr("Давай откроем десяток клочков – туман тает, где мы идём.", "Let's clear ten patches – the fog lifts wherever we go.")
     d.pets.none { it.eggTaste.isNotEmpty() } -> tr("В тумане лежат яйца. Ищем на новых улицах!", "Eggs lie in the fog. Let's look on new streets!")
-    d.finds.none { it.ref.startsWith("scent:") } -> tr("Я что-то чую! Пойдём по следу – стрелка в «Нюхе».", "I smell something! Let's follow the scent – see «Scent».")
+    d.finds.none { it.ref.startsWith("scent:") } -> tr(SCENT_HINT_RU, SCENT_HINT_EN)
     else -> null
 }
 
@@ -260,7 +264,11 @@ private fun Den(d: Data, nav: Nav, night: Float) {
         val ih = W * 1.5f
         val top = H - ih
         Sky(null, night, System.currentTimeMillis(), Modifier.fillMaxSize())
-        if (bg != null) Image(bg, null, Modifier.fillMaxWidth().height(ih + 2.dp).offset(y = top), contentScale = ContentScale.FillBounds, filterQuality = FilterQuality.Low)
+        // drawn standing on the bottom at its own proportions: as an Image it was squeezed into a short screen and the sky showed under it (#5)
+        if (bg != null) Canvas(Modifier.fillMaxSize()) {
+            val y = size.height - size.width * 1.5f
+            drawImage(bg, IntOffset.Zero, IntSize(bg.width, bg.height), IntOffset(0, y.roundToInt()), IntSize(size.width.roundToInt(), (size.width * 1.5f).roundToInt() + 3), filterQuality = FilterQuality.Low)
+        }
         fun x(f: Float) = W * f
         fun y(f: Float) = top + ih * f
         val decor = Shop.decor.filter { it.id in d.s.owned }
@@ -301,7 +309,7 @@ private fun Actions(d: Data, nav: Nav, live: Live) {
         here != null && here.time > 0 -> "${fmt(Grid.distance(here.lat, here.lon, sc.lat, sc.lon).roundToInt())} ${tr("м", "m")}"
         else -> app.roamling.domain.bi(sc.place)
     }
-    val today = app.roamling.domain.Quest.daily(d.today).count { questProgress(d, it) >= 1f }
+    val today = d.dailyQuests.count { questProgress(d, it) >= 1f }
     val week = app.roamling.domain.Quest.weekly(d.monday).count { questProgress(d, it) >= 1f }
     Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ActionTile("compass", tr("Нюх", "Scent"), scentText, Modifier.weight(1f)) { nav.sheet = "scent" }

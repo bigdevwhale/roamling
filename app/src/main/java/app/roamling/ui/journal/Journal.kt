@@ -200,6 +200,34 @@ private fun Totals(d: Data) {
         Triple(fmt(d.pets.count { it.stage > 0 }), tr("попутчиков", "companions"), "heart"),
         Triple(fmt(d.finds.size), tr("находок", "finds"), "gift"),
     ))
+    // who walks along and what was found, opened by a tap (#4)
+    var open by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf("") }
+    val pets = d.pets.filter { it.stage > 0 }
+    Row(Modifier.fillMaxWidth().padding(top = 10.dp).card().clickable { open = if (open == "pets") "" else "pets" }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Ico("heart", 22.dp); Text(tr("Попутчики · ${pets.size}", "Companions · ${pets.size}"), style = T.bodyB, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        Text(if (open == "pets") "▲" else "▼", style = T.small)
+    }
+    if (open == "pets") pets.sortedByDescending { it.meters }.forEach { p ->
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            app.roamling.ui.art.PetArt(p, 40.dp)
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(p.name, style = T.smallB); Text(app.roamling.domain.Catalog[p.species].name + " · " + fmt1(p.meters / 1000) + tr(" км вместе", " km together"), style = T.tiny)
+            }
+        }
+    }
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp).card().clickable { open = if (open == "finds") "" else "finds" }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Ico("gift", 22.dp); Text(tr("Находки · ${d.finds.size}", "Finds · ${d.finds.size}"), style = T.bodyB, modifier = Modifier.weight(1f).padding(start = 8.dp))
+        Text(if (open == "finds") "▲" else "▼", style = T.small)
+    }
+    if (open == "finds") d.finds.sortedByDescending { it.at }.forEach { f ->
+        Row(Modifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Pic("find_${f.item}", 32.dp)
+            Column(Modifier.weight(1f).padding(start = 8.dp)) {
+                Text(app.roamling.domain.Finds.name(f.item), style = T.smallB)
+                Text(listOfNotNull(app.roamling.domain.bi(f.place).takeIf { it.isNotBlank() && f.place != "gift" }, fmtDayYear(dayOf(f.at))).joinToString(" · "), style = T.tiny)
+            }
+        }
+    }
     Section(tr("Шаги за 14 дней", "Steps over 14 days"))
     val days = (13 downTo 0).map { d.today - it }
     Bars(days.map { day -> dayShort(java.time.LocalDate.ofEpochDay(day).dayOfWeek.value - 1) to (d.days.firstOrNull { it.day == day }?.steps ?: 0).toDouble() }, hi = 13)
