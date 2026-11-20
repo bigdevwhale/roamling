@@ -6,6 +6,28 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.2.0] - 2026-11-20
+
+### Added
+- **Swap a daily task:** one that can't be done today (a walk by the water with no water near) can be traded once for another of a different kind, for 15 cones (#8).
+- **The map turns with two fingers**, as in Fogwalk, once they plainly twist; the compass button sets north back up (#3).
+- **Totals open up:** in the journal's Totals, the companions and the finds unfold into lists – who walked how far with you, what was found where and when (#4).
+
+### Changed
+- **Shadows stand on pavements:** a shadow still appears where it did, but when a way you've walked before passes within 80 m, it stands on it, not inside a fenced school yard (#3).
+- **The nose explained:** the leader's first scent says to tap it, and the tap opens the nose; the nose tells what the arrow and the map's find icon mean; the hint about food says plainly that new places feed best (#4).
+- **Weak GPS said plainly:** with an accuracy worse than ±35 m the map says that fog and steps don't count until it sharpens (#2).
+
+### Fixed
+- The den's picture reaches the bottom on shorter screens; the night sky no longer shows in a stripe under it (#5).
+
+<!-- tg
+Дневное задание теперь можно сменить на другое за 15 шишек, а карту – поворачивать двумя пальцами, как в Fogwalk
+Тучки встают на тротуары, по которым вы уже ходили, а не во дворы школ
+Понятнее про «Нюх» и еду, в «Итогах» раскрываются попутчики и находки, при слабом GPS карта так и пишет
+Исправлено: под картинкой логова больше нет фиолетовой полосы
+-->
+
 ## [1.1.0] - 2026-11-18
 
 ### Added
