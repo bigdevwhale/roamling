@@ -211,9 +211,14 @@ fun PetPage(id: Long, d: Data, nav: Nav) {
         val owned = Shop.gear.filter { it.id in d.s.owned }
         if (owned.isEmpty()) Text(tr("Пока ничего нет – загляните в лавку.", "Nothing yet – have a look in the shop."), style = T.body, modifier = Modifier.padding(top = 8.dp))
         owned.forEach { th ->
-            Row(Modifier.fillMaxWidth().padding(top = 8.dp).card().clickable { c.write { wear(p, if (p.gear == th.id) "" else th.id) }; gear = false }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            // who wears it now, so nobody is left bare in the frost by accident (#9)
+            val on = d.pets.firstOrNull { it.gear == th.id && it.id != p.id }
+            Row(Modifier.fillMaxWidth().padding(top = 8.dp).card().clickable {
+                c.write { wear(p, if (p.gear == th.id) "" else th.id); if (on != null && p.gear != th.id) say(tr("${th.name} надет. ${on.name} теперь без него", "${th.name} is on. ${on.name} goes without it now")) }; gear = false
+            }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Pic("gear_${th.id}", 40.dp)
-                Column(Modifier.weight(1f).padding(start = 10.dp)) { Text(th.name, style = T.bodyB); Text(th.help, style = T.small) }
+                Column(Modifier.weight(1f).padding(start = 10.dp)) { Text(th.name, style = T.bodyB); Text(th.help, style = T.small)
+                    if (on != null) Text(tr("Сейчас носит ${on.name}", "${on.name} wears it now"), style = T.small.copy(color = C.gold)) }
                 if (p.gear == th.id) Text("✓", style = T.h2.copy(color = C.ok))
             }
         }

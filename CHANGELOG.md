@@ -6,6 +6,15 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.2.1] - 2026-11-22
+
+### Changed
+- **Who wears what (#9):** in a companion's gear list, a piece another companion wears says so – «Shurshik wears it now». Put it on anyway and you're told who goes without it, so nobody is left bare in the frost by accident.
+
+<!-- tg
+В снаряжении видно, на ком уже надета вещь, – и если переодеть её на другого спутника, приложение скажет, кто остался без неё
+-->
+
 ## [1.2.0] - 2026-11-20
 
 ### Added
