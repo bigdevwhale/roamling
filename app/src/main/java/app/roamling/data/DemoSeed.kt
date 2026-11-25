@@ -115,6 +115,8 @@ object DemoSeed {
             pet("plod", "Топа", "Toppy", 3, 2, 55, shiny = true), pet("puddle", "Капля", "Drop", 1, -1, 6), pet("fern", "Завиток", "Curl", 2, -1, 16, mapOf(Taste.GREEN to 1800.0)),
             pet("pigeon", "Гуля", "Coo", 3, 1, 40), pet("dawn", "Зоря", "Dawny", 3, 0, 33), pet("roofcat", "Мурза", "Tiles", 1, -1, 3), pet("eaglet", "Гордей", "Scout", 3, 2, 38),
             pet("fogling", "Морок", "Haze", 3, 1, 28), pet("graffiti", "Клякса", "Splotch", 2, -1, 12, mapOf(Taste.STONE to 900.0, Taste.DUSK to 700.0)),
+            // a twin of Nutty's, to show what twins are for (#7)
+            pet("acorn", "Желудёк", "Nutlet", 2, -1, 9, mapOf(Taste.WATER to 1200.0, Taste.GREEN to 500.0)),
         )
         den.forEach { dao.insert(it) }
         val eggs = listOf(Pet(species = "beaver", name = "", stage = 0, eggLeft = 1300.0, eggTaste = "WATER", born = now - 86_400_000L),

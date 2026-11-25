@@ -49,12 +49,18 @@ class Scene(
     val hereDistrict: Long? = null,
     /** The spirit (by ordinal) of each district known so far; districts not in it are still unknown. */
     val kinds: Map<Long, Int> = emptyMap(),
+    /** Companions living out on the map (#7, #11). */
+    val residents: List<Dweller> = emptyList(),
 )
+
+/** A resident as the map draws it: its sprite, and whether this week's gift still waits. */
+class Dweller(val pet: Long, val lat: Double, val lon: Double, val sprite: String, val gift: Boolean)
 
 sealed interface Pick {
     data object Scent : Pick
     data class OfShadow(val s: Shadow) : Pick
     data object Rainbow : Pick
+    data class OfResident(val pet: Long) : Pick
     data class District(val key: Long) : Pick
 }
 
@@ -118,6 +124,7 @@ class FogOverlay(private val ctx: Context, private val fog: FogStore, private va
         s.home?.let { (la, lo) -> bmp("ic_door")?.let { b -> drawSprite(c, b, sx(lo), sy(la), 30 * density, 1f) } }
         s.rainbow?.let { drawRainbow(c, it, t) }
         s.scent?.let { drawScent(c, it, s.scentKind, t) }
+        s.residents.forEach { drawResident(c, it, t) }
         s.shadows.forEach { drawShadow(c, it, t) }
         if (s.keeper) drawKeeper(c, s, t)
         drawWalker(c, s, t)
@@ -290,6 +297,20 @@ class FogOverlay(private val ctx: Context, private val fog: FogStore, private va
         if (place != null) drawSprite(c, place, x, y + 22 * density, 44 * density, 1f)
         bmp("find_${sc.third}")?.let { drawSprite(c, it, x + 18 * density, y - 12 * density - pulse * 4 * density, 24 * density, 1f) }
         hits += Pick.Scent to floatArrayOf(x, y, 30 * density)
+    }
+
+    /** A companion at home on the map; a heart bobs over it while this week's gift waits. */
+    private fun drawResident(c: Canvas, r: Dweller, t: Long) {
+        val x = sx(r.lon); val y = sy(r.lat)
+        val b = bmp(r.sprite) ?: return
+        fill.shader = null; fill.maskFilter = null
+        fill.color = 0x33000000; c.drawOval(x - 13 * density, y - 3 * density, x + 13 * density, y + 3 * density, fill)
+        drawSprite(c, b, x, y, 34 * density, 1f)
+        if (r.gift) bmp("ic_heart")?.let { h ->
+            val bob = (sin(t / 400.0 + r.pet) * 3 * density).toFloat()
+            drawSprite(c, h, x + 14 * density, y - 30 * density + bob, 16 * density, 1f)
+        }
+        hits += Pick.OfResident(r.pet) to floatArrayOf(x, y - 17 * density, 26 * density)
     }
 
     private fun drawShadow(c: Canvas, sh: Shadow, t: Long) {

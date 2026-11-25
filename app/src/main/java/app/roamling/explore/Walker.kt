@@ -247,7 +247,9 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
         val day = dayOf(f.time)
         // the fog
         val freshCells = ArrayList<Long>()
-        for ((la, lo) in points) Grid.around(la, lo, REVEAL_M) { if (fog.add(it)) freshCells += it }
+        val leaderStage = s.team.firstOrNull()?.let { dao.pet(it) }?.stage ?: 1
+        val reveal = Growth.reveal(leaderStage, s.breezeUntil > f.time)
+        for ((la, lo) in points) Grid.around(la, lo, reveal) { if (fog.add(it)) freshCells += it }
         if (freshCells.isNotEmpty()) { dao.insertCells(freshCells.map { Cell(it, f.time) }); fog.changed() }
 
         // the patches: new ones are fresh food, old ones on a new day grow familiar
@@ -299,6 +301,7 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
         // the nose, the wild ones, the rainbow, the call
         val now2 = settings.now()
         scentCheck(now2, points, f.time)
+        residentCheck(now2, points, f.time)
         wildCheck(now2, points, f.time, step.lat, step.lon, Tastes.of(patchHere), rise, set)
         callCheck(day, f.time, rise, set)
         if (f.time - savedAt > 60_000) { savedAt = f.time; settings.update { it.copy(lastLat = step.lat, lastLon = step.lon) } }
@@ -481,6 +484,27 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
         _events.tryEmit(Event.Found(find.copy(id = fid)))
     }
 
+    /**
+     * Passing by a companion let go to live somewhere (#7, #11): once a week it brings a find and cones –
+     * twice the cones where the place is to its taste – and gains a heart from the meeting.
+     */
+    private suspend fun residentCheck(s: Settings, points: List<Pair<Double, Double>>, at: Long) {
+        if (s.residents.isEmpty()) return
+        val dao = db.dao()
+        val monday = app.roamling.domain.weekStart(dayOf(at))
+        for (r in s.residents) {
+            if (at - r.at < Growth.SETTLE_MS) continue // just settled: the first gift waits till it has made itself at home
+            if (points.none { Grid.distance(it.first, it.second, r.lat, r.lon) <= REACH_M + 15 }) continue
+            val p = dao.pet(r.pet) ?: continue
+            val ref = "visit:${r.pet}:$monday"
+            if (dao.grant(Entry(ref, at, Growth.VISIT_CONES * (if (r.home) 2 else 1))) == -1L) continue
+            dao.update(p.copy(bond = (p.bond + 1).coerceAtMost(10.0)))
+            val item = app.roamling.domain.Finds.ids[Math.floorMod(hash(ref), app.roamling.domain.Finds.ids.size)]
+            val f = Find(item = item, at = at, lat = r.lat, lon = r.lon, place = "${p.name} у своего дома|${p.name} by its home", ref = ref)
+            _events.tryEmit(Event.Found(f.copy(id = dao.insert(f))))
+        }
+    }
+
     private suspend fun wildCheck(s: Settings, points: List<Pair<Double, Double>>, at: Long, lat: Double, lon: Double, taste: Taste?, rise: Long, set: Long) {
         val dao = db.dao()
         val day = dayOf(at)
@@ -521,6 +545,15 @@ class Walker(private val db: Db, private val settings: SettingsStore, val fog: F
         val dist = Grid.distance(lat, lon, la, lo)
         settings.update { it.copy(shadows = it.shadows + Shadow(species, la, lo, at + 25 * 60_000, lured)) }
         _events.tryEmit(Event.ShadowNear(species, dist.toInt()))
+    }
+
+    /** Lets out a bottled breeze: the fog parts twice as wide for half an hour (#13). False when there is none or no walk. */
+    suspend fun breeze(): Boolean = serial {
+        val s = settings.now()
+        if (s.breezes <= 0 || !s.walking) return@serial false
+        val at = System.currentTimeMillis()
+        settings.update { it.copy(breezes = it.breezes - 1, breezeUntil = maxOf(it.breezeUntil, at) + Growth.BREEZE_MS) }
+        true
     }
 
     /** A lure: one of the wild ones that may come now shows up close by. False when none may come. */

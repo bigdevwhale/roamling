@@ -70,6 +70,8 @@ fun ShopPage(d: Data, nav: Nav) {
             0 -> listOf(
                 Ware("ic_moon", tr("Приманка", "Lure"), tr("Зовёт дикого, который может прийти сейчас", "Calls a wild one that may come now"), Shop.LURE, false, tr("есть: ${d.s.lures}", "have: ${d.s.lures}")) {
                     c.write { if (buyLure()) say(tr("Приманка в рюкзаке", "A lure in the backpack")) } },
+                Ware("cloud_1", tr("Ветерок в бутылке", "Bottled breeze"), tr("Полчаса прогулки туман расходится вдвое шире", "For half an hour of a walk the fog parts twice as wide"), Shop.BREEZE, false, tr("есть: ${d.s.breezes}", "have: ${d.s.breezes}")) {
+                    c.write { if (buyBreeze()) say(tr("Ветерок в рюкзаке – выпустите его на прогулке", "A breeze in the backpack – let it out on a walk")) } },
                 Ware("ic_stone", tr("Камень ветвления", "Branch stone"), tr("Меняет взрослую форму на другую", "Turns a grown form into another"), Shop.STONE, false, tr("есть: ${d.s.stones}", "have: ${d.s.stones}")) {
                     c.write { if (buyStone()) say(tr("Камень ветвления куплен", "Branch stone bought")) } },
                 Ware("egg_green", tr("Третий карман", "A third pocket"), tr("Ещё одно место для яйца", "Room for one more egg"), Shop.POCKET, d.s.eggSlots >= 3) {

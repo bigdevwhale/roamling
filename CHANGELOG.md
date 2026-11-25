@@ -6,6 +6,28 @@ line "<!-- tg", then 2-4 short lines in Russian for users (what is new, what is 
 then close it like any HTML comment. The release notes carry it, and the chat bot posts those lines.
 -->
 
+## [1.3.0] - 2026-11-25
+
+### Added
+- **Twins have a use (#7, #11):** a second one of a kind says which grown forms of its species you don't have yet and what to feed it to grow into one – in the news when it comes and in its card.
+- **Let a twin live on the map (#6, #7, #11):** on a walk, a twin can be let go to settle where you stand – 10 cones per stage at once. It shows on the map, and once a week, walking by, it brings a find and 8 cones (16 where the place is to its taste) and gains a heart. It stays yours and in the bestiary; call it home any time.
+- **Older leaders part more fog (#13):** the fog clears 25 m around you with a baby leading, 30 m with a teen, 35 m with a grown one.
+- **Bottled breeze (#13):** a new thing in the shop, 40 cones – let it out on a walk and for half an hour the fog parts twice as wide.
+
+### Changed
+- **«Give a pat» is a real button (#12):** it used to be only a hint – pressing it did nothing. Now it makes the companion jump for joy, and the first pat of the day adds a quarter of a heart.
+- On a walk, the breeze and the lure get a row of their own when both are in the backpack, so no button is cut short.
+
+### Fixed
+- **Nobody sits on anybody in the den (#14):** companions stand in staggered rows on the floor, the far ones smaller and behind; before, the second row sat in the first one's lap and the back row was drawn over the front.
+
+<!-- tg
+Двойников теперь можно отпустить жить на карте: раз в неделю, проходя мимо, получите от него находку и шишки. А в карточке двойника видно, в какую ещё не открытую форму его можно вырастить
+Чем старше вожак, тем шире расходится туман, а в лавке появился «Ветерок в бутылке» – полчаса туман тает вдвое шире
+Кнопка «Погладить» теперь работает: раз в день добавляет четверть сердечка
+Исправлено: в логове зверьки больше не сидят друг на друге
+-->
+
 ## [1.2.1] - 2026-11-22
 
 ### Changed

@@ -242,6 +242,14 @@ fun nextNews(d: Data): News? {
         if (p.stage == 0) { if ("e:${p.id}" !in d.s.told) return News("e:${p.id}", p, tr("Яйцо!", "An egg!"), tr("В тумане нашлось яйцо. Оно в кармане рюкзака – пройдите с ним ${fmt1(p.eggLeft / 1000)} км, и оно вылупится.", "An egg turned up in the fog. It's in a backpack pocket – carry it ${fmt1(p.eggLeft / 1000)} km and it will hatch.")); continue }
         for (st in 1..p.stage) {
             if ("p:${p.id}:$st" in d.s.told) continue
+            // a twin: say what it is good for (#7)
+            if (st == 1 && d.pets.any { it.species == p.species && it.stage > 0 && it.id < p.id }) {
+                val missing = app.roamling.domain.Growth.formsMissing(p.species, d.pets).map { i -> sp.forms[i] }
+                val tip = if (missing.isNotEmpty()) tr("Такой у вас уже есть – но этого можно вырастить в другую форму: ${missing.joinToString(" или ") { if ("${sp.id}:${sp.forms.indexOf(it)}" in d.forms) it.name else it.taste.title.lowercase() + " в рационе" }}. Или отпустить жить на карте – подробнее в его карточке.",
+                    "You have one already – but this one can grow into another form: ${missing.joinToString(" or ") { if ("${sp.id}:${sp.forms.indexOf(it)}" in d.forms) it.name else it.taste.title.lowercase() + " in its diet" }}. Or let it live on the map – see its card.")
+                    else tr("Такой у вас уже есть. Его можно отпустить жить на карте – он будет ждать вас с подарками. Подробнее в его карточке.", "You have one already. You can let it live on the map – it will wait for you with gifts. See its card.")
+                return News("p:${p.id}:1", p, if (sp.group.wild) tr("Ещё один ${sp.name}!", "Another ${sp.name}!") else tr("Вылупился двойник!", "A twin hatched!"), tip)
+            }
             return when (st) {
                 1 -> if (sp.group.wild) News("p:${p.id}:1", p, tr("Новый попутчик!", "A new companion!"), tr("${sp.name} пошёл с вами. ${sp.about}", "${sp.name} came along. ${sp.about}"))
                     else News("p:${p.id}:1", p, tr("Вылупился!", "Hatched!"), tr("Из яйца – ${sp.name}. ${if (p.shiny) "Да ещё и искрящийся – такие редкость! " else ""}Назовём его ${p.name}?", "Out of the egg – a ${sp.name}. ${if (p.shiny) "A sparkling one, too – they are rare! " else ""}Shall we call it ${p.name}?"))
@@ -252,7 +260,7 @@ fun nextNews(d: Data): News? {
     }
     d.finds.firstOrNull { "f:${it.id}" !in d.s.told && System.currentTimeMillis() - it.at < 86_400_000 && !it.ref.endsWith(":pack") }?.let { f ->
         val place = app.roamling.domain.bi(f.place)
-        return News("f:${f.id}", null, Finds.name(f.item), (when { f.place == "gift" -> tr("Подарок за цель шагов.", "A gift for the step goal."); f.ref.startsWith("miss:") -> tr("Подарок: $place.", "A gift: $place."); else -> tr("Нашлось у места: $place.", "Found by: $place.") }) +
+        return News("f:${f.id}", null, Finds.name(f.item), (when { f.place == "gift" -> tr("Подарок за цель шагов.", "A gift for the step goal."); f.ref.startsWith("miss:") || f.ref.startsWith("visit:") -> tr("Подарок: $place.", "A gift: $place."); else -> tr("Нашлось у места: $place.", "Found by: $place.") }) +
             " " + tr("Уйдёт ", "It goes ") + Finds.recipient(f.item) + ".", f.item)
     }
     return null

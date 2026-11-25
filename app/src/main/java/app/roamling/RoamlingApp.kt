@@ -5,6 +5,7 @@ import android.content.Context
 import app.roamling.data.Db
 import app.roamling.data.Entry
 import app.roamling.data.Pet
+import app.roamling.data.Resident
 import app.roamling.data.SettingsStore
 import app.roamling.domain.Catalog
 import app.roamling.domain.FogStore
@@ -14,6 +15,7 @@ import app.roamling.domain.Quest
 import app.roamling.domain.Shop
 import app.roamling.domain.Tastes
 import app.roamling.domain.dayOf
+import app.roamling.domain.tr
 import app.roamling.domain.weekStart
 import app.roamling.explore.HealthSteps
 import app.roamling.explore.LocationFeed
@@ -90,6 +92,44 @@ class AppContainer(context: Context) {
         settings.update { it.copy(lures = it.lures + 1) }; true
     }
 
+    suspend fun buyBreeze(): Boolean = lock.withLock {
+        if (!spend("breeze:${System.currentTimeMillis()}", Shop.BREEZE)) return@withLock false
+        settings.update { it.copy(breezes = it.breezes + 1) }; true
+    }
+
+    /** A pat, once a day per companion, warms its heart a little (#12). False when it was patted today already. */
+    suspend fun pat(p: Pet): Boolean = lock.withLock {
+        if (p.stage <= 0) return@withLock false
+        val now = System.currentTimeMillis()
+        if (dao.grant(Entry("pat:${p.id}:${dayOf(now)}", now, 0)) == -1L) return@withLock false
+        dao.pet(p.id)?.let { dao.update(it.copy(bond = (it.bond + Growth.PAT_BOND).coerceAtMost(10.0))) }
+        true
+    }
+
+    /**
+     * Lets a twin go to live where the walker stands (#7, #11): cones once, then a gift each week it is visited.
+     * Only on a walk, only a twin, never the last one in the backpack. Null when done, else why not.
+     */
+    suspend fun release(p: Pet): String? = lock.withLock {
+        val s = settings.now()
+        val f = walker.live.value.fix
+        when {
+            !s.walking || f == null || f.time <= 0 -> return@withLock tr("Отпустить можно на прогулке: поселится там, где вы стоите", "You can let it go on a walk: it settles where you stand")
+            p.stage <= 0 || s.residents.any { it.pet == p.id } -> return@withLock tr("Уже живёт на карте", "Already lives on the map")
+            Growth.twinsOf(p, dao.petList().filter { o -> s.residents.none { it.pet == o.id } }).isEmpty() -> return@withLock tr("Отпустить можно только двойника", "Only a twin can be let go")
+            s.team == listOf(p.id) -> return@withLock tr("Рюкзак не может остаться пустым", "The backpack can't be left empty")
+        }
+        val now = System.currentTimeMillis()
+        val taste = Tastes.of(Tastes.patchOf(f!!.lat, f.lon))
+        val home = taste == Growth.loves(p)
+        dao.grant(Entry("release:${p.id}", now, Growth.RELEASE_CONES * p.stage))
+        settings.update { it.copy(team = it.team - p.id, residents = it.residents + Resident(p.id, f.lat, f.lon, now, taste?.name.orEmpty(), home)) }
+        null
+    }
+
+    /** Calls a resident back to the den. */
+    suspend fun callHome(p: Pet) = settings.update { s -> s.copy(residents = s.residents.filter { it.pet != p.id }) }
+
     suspend fun buyStone(): Boolean = lock.withLock {
         if (!spend("stone:${System.currentTimeMillis()}", Shop.STONE)) return@withLock false
         settings.update { it.copy(stones = it.stones + 1) }; true
@@ -119,7 +159,7 @@ class AppContainer(context: Context) {
     suspend fun toTeam(id: Long, slot: Int) = settings.update { s ->
         val t = s.team.filter { it != id }.toMutableList()
         t.add(slot.coerceIn(0, t.size), id)
-        s.copy(team = t.take(3))
+        s.copy(team = t.take(3), residents = s.residents.filter { it.pet != id })
     }
 
     suspend fun toDen(id: Long) = settings.update { s -> if (s.team.size <= 1) s else s.copy(team = s.team - id) }

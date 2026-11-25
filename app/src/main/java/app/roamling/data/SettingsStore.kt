@@ -17,6 +17,15 @@ data class Scent(val day: Long = 0, val lat: Double = 0.0, val lon: Double = 0.0
 }
 
 /** A wild one seen on the map: come close and it joins. */
+/**
+ * A companion let go to live at a place (#7, #11): it stays yours and in the bestiary, just not in the den.
+ * [taste] is the place's taste when it settled; [home] is true when that is the taste it loves.
+ */
+data class Resident(val pet: Long, val lat: Double, val lon: Double, val at: Long, val taste: String = "", val home: Boolean = false) {
+    fun json() = JSONObject().put("pet", pet).put("lat", lat).put("lon", lon).put("at", at).put("taste", taste).put("home", home)
+    companion object { fun of(o: JSONObject) = Resident(o.optLong("pet"), o.optDouble("lat"), o.optDouble("lon"), o.optLong("at"), o.optString("taste"), o.optBoolean("home")) }
+}
+
 data class Shadow(val species: String = "", val lat: Double = 0.0, val lon: Double = 0.0, val until: Long = 0, val lured: Boolean = false) {
     fun json() = JSONObject().put("s", species).put("lat", lat).put("lon", lon).put("until", until).put("lured", lured)
     companion object { fun of(o: JSONObject) = Shadow(o.optString("s"), o.optDouble("lat"), o.optDouble("lon"), o.optLong("until"), o.optBoolean("lured")) }
@@ -63,6 +72,11 @@ data class Settings(
     val seals: Map<Long, String> = emptyMap(),
     /** When the Keeper of the fog came out, 0 before. */
     val finale: Long = 0,
+    /** Bottled breezes in the backpack, and until when the one let out blows (#13). */
+    val breezes: Int = 0,
+    val breezeUntil: Long = 0,
+    /** Twins let go to live at a place on the map (#7, #11). */
+    val residents: List<Resident> = emptyList(),
 ) {
     fun json(): JSONObject = JSONObject().apply {
         put("onboarded", onboarded); put("theme", theme); put("team", JSONArray(team)); put("eggs", JSONArray(eggs)); put("eggSlots", eggSlots)
@@ -73,6 +87,7 @@ data class Settings(
         put("seen", JSONArray(seen.toList())); put("told", JSONArray(told.toList())); put("health", health); put("pedometer", pedometer); put("notify", notify)
         put("decor", JSONObject().apply { decor.forEach { (k, v) -> put(k, v) } })
         put("seals", JSONObject().apply { seals.forEach { (k, v) -> put(k.toString(), v) } }); put("finale", finale)
+        put("breezes", breezes); put("breezeUntil", breezeUntil); put("residents", JSONArray(residents.map { it.json() }))
     }
 
     companion object {
@@ -89,6 +104,8 @@ data class Settings(
                 j.optJSONObject("decor")?.let { o -> o.keys().asSequence().associateWith { o.getInt(it) } } ?: emptyMap(),
                 j.optJSONObject("seals")?.let { o -> o.keys().asSequence().associate { it.toLong() to o.getString(it) } } ?: emptyMap(),
                 j.optLong("finale"),
+                j.optInt("breezes"), j.optLong("breezeUntil"),
+                j.optJSONArray("residents")?.let { a -> (0 until a.length()).map { Resident.of(a.getJSONObject(it)) } } ?: emptyList(),
             )
         }
     }

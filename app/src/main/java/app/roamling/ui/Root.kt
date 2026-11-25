@@ -103,9 +103,11 @@ class Data(val s: Settings, val pets: List<Pet>, val walks: List<Walk>, val days
     }
     val today = dayOf(System.currentTimeMillis())
     val byId = pets.associateBy { it.id }
-    val team: List<Pet> = s.team.mapNotNull { byId[it] }
+    /** Companions living out on the map (#7, #11), by id. */
+    val residents: Map<Long, app.roamling.data.Resident> = s.residents.associateBy { it.pet }
+    val team: List<Pet> = s.team.filter { it !in residents }.mapNotNull { byId[it] }
     val eggs: List<Pet> = s.eggs.mapNotNull { byId[it] }.filter { it.stage == 0 }
-    val den: List<Pet> = pets.filter { it.stage > 0 && it.id !in s.team }
+    val den: List<Pet> = pets.filter { it.stage > 0 && it.id !in s.team && it.id !in residents }
     val leader: Pet? = team.firstOrNull()
     val cones = entries.sumOf { it.cones }
     val day: Day = days.lastOrNull { it.day == today } ?: Day(today)

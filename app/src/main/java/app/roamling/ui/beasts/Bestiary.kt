@@ -158,6 +158,34 @@ fun SpeciesPage(id: String, d: Data, nav: Nav) {
     }
 }
 
+/**
+ * A twin is not a spare (#7): it can grow into a form of its kind nobody of yours has yet – the card says which and
+ * what to feed it – or be let go to live at a place on the map.
+ */
+@Composable
+private fun TwinCard(p: app.roamling.data.Pet, sp: Species, d: Data, others: Int, onRelease: () -> Unit) {
+    val missing = Growth.formsMissing(sp.id, d.pets)
+    Column(Modifier.fillMaxWidth().padding(top = 12.dp).card(color = C.goldSoft).padding(12.dp)) {
+        Text(tr("Двойник", "A twin"), style = T.h3)
+        Text(when {
+            p.stage < 3 && missing.isNotEmpty() -> tr("${sp.name} у вас уже есть ($others). Этого можно вырастить в форму, которой ещё нет:", "You already have a ${sp.name} ($others). This one can grow into a form you don't have yet:")
+            missing.isNotEmpty() -> tr("Ещё нет форм:", "Forms still missing:")
+            else -> tr("Все формы вида у вас уже есть.", "You have every form of its kind.")
+        }, style = T.small, modifier = Modifier.padding(top = 4.dp))
+        missing.forEach { i ->
+            val f = sp.forms[i]
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Mini(sp.id, 36.dp, dim = "${sp.id}:$i" !in d.forms, frame = sp.formFrame(i), silhouette = true)
+                Ico(f.taste.icon, 16.dp, Modifier.padding(start = 6.dp))
+                Text(tr("${if ("${sp.id}:$i" in d.forms) f.name else "???"} – ${if (p.stage < 3) "кормите" else "любит"}: ${f.taste.title.lowercase()}", "${if ("${sp.id}:$i" in d.forms) f.name else "???"} – ${if (p.stage < 3) "feed it" else "loves"}: ${f.taste.title.lowercase()}"),
+                    style = T.small.copy(color = C.ink), modifier = Modifier.padding(start = 4.dp))
+            }
+        }
+        Text(tr("Или отпустите его жить на карте: он будет ждать вас там с подарками.", "Or let it live on the map: it will wait for you there with gifts."), style = T.small, modifier = Modifier.padding(top = 8.dp))
+        Ghost(tr("Отпустить жить здесь", "Let it live here"), Modifier.fillMaxWidth().padding(top = 8.dp), small = true, onClick = onRelease)
+    }
+}
+
 @Composable
 private fun StageTile(kind: String, frame: Int, title: String, taste: Taste?, seen: Boolean, modifier: Modifier) {
     Column(modifier.card().padding(8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
@@ -175,14 +203,27 @@ fun PetPage(id: Long, d: Data, nav: Nav) {
     var rename by rememberSaveable { mutableStateOf(false) }
     var reform by rememberSaveable { mutableStateOf(false) }
     var gear by rememberSaveable { mutableStateOf(false) }
+    var release by rememberSaveable { mutableStateOf(false) }
     val inTeam = p.id in d.s.team
     Page(p.name, { nav.pop() }, action = {
         if (p.stage > 0) app.roamling.ui.journal.ShareButton { nav.sheet = "cards:pet:${p.id}" }
         Text(tr("Имя", "Name"), style = T.smallB.copy(color = C.acc), modifier = Modifier.clickable { rename = true }.padding(12.dp)) }) {
         val stage = listOf(tr("Яйцо", "Egg"), tr("Малыш", "Baby"), tr("Подросток", "Teen"), sp.forms[p.form.coerceAtLeast(0)].name)[p.stage]
-        PetHero(p, sp, stage) { nav.push(Screen.SpeciesInfo(sp.id)) }
+        PetHero(p, sp, stage, d.entries.any { it.ref == "pat:${p.id}:${d.today}" }) { nav.push(Screen.SpeciesInfo(sp.id)) }
         if (p.stage > 0) EvolutionTree(p, sp, d)
         Passport(p, sp, d)
+        val resident = d.residents[p.id]
+        val twins = Growth.twinsOf(p, d.pets.filter { it.id !in d.residents })
+        if (resident == null && p.stage > 0 && twins.isNotEmpty()) TwinCard(p, sp, d, twins.size) { release = true }
+        if (resident != null) {
+            Section(tr("Живёт на карте", "Lives on the map"))
+            val here = d.s.lastLat.takeIf { it != 0.0 }?.let { app.roamling.geo.Grid.distance(it, d.s.lastLon, resident.lat, resident.lon) }
+            val visited = d.entries.any { it.ref == "visit:${p.id}:${d.monday}" }
+            Text(tr("Поселился ${fmtDayYear(dayOf(resident.at))}${if (resident.home) " – место ему по вкусу" else ""}. ", "Settled ${fmtDayYear(dayOf(resident.at))}${if (resident.home) " – a place to its taste" else ""}. ") +
+                (when { visited -> tr("На этой неделе вы уже виделись.", "You've met this week already."); System.currentTimeMillis() - resident.at < Growth.SETTLE_MS -> tr("Обживается – первый подарок будет завтра.", "Settling in – the first gift comes tomorrow."); else -> tr("Пройдите мимо – и он вынесет подарок.", "Walk by and it will bring a gift.") }) +
+                (here?.let { tr(" До него ~${fmt(it.toInt())} м.", " ~${fmt(it.toInt())} m away.") } ?: ""), style = T.small)
+            Ghost(tr("Позвать домой", "Call it home"), Modifier.fillMaxWidth().padding(top = 8.dp), small = true) { c.write { callHome(p); say(tr("${p.name} вернулся в логово", "${p.name} is back in the den")) } }
+        } else {
         Section(tr("Рюкзак", "Backpack"))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             when {
@@ -196,6 +237,19 @@ fun PetPage(id: Long, d: Data, nav: Nav) {
         if (p.stage > 0) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Ghost(if (p.gear.isEmpty()) tr("Надеть снаряжение", "Put on gear") else Shop.byId[p.gear]?.name ?: p.gear, Modifier.weight(1f), small = true) { gear = true }
             if (p.stage == 3 && sp.forms.size > 1) Ghost(tr("Камень ветвления · ${d.s.stones}", "Branch stone · ${d.s.stones}"), Modifier.weight(1f), small = true) { reform = true }
+        }
+        }
+    }
+    if (release) Popup({ release = false }) {
+        Text(tr("Отпустить жить здесь?", "Let it live here?"), style = T.h2)
+        Text(tr("${p.name} поселится там, где вы сейчас стоите, и будет на карте. Сейчас – ${Growth.RELEASE_CONES * p.stage} шишек. " +
+            "Раз в неделю, проходя мимо, получите находку и шишки – вдвое больше, если место ему по вкусу (${Growth.loves(p).title.lowercase()}). " +
+            "Он останется вашим и в бестиарии, позвать домой можно в любой момент.",
+            "${p.name} will settle where you stand now and show on the map. Now – ${Growth.RELEASE_CONES * p.stage} cones. " +
+            "Once a week, walking by, you get a find and cones – twice as many if the place is to its taste (${Growth.loves(p).title.lowercase()}). " +
+            "It stays yours and in the bestiary; you can call it home any time."), style = T.small, modifier = Modifier.padding(top = 6.dp))
+        Btn(tr("Отпустить", "Let it go"), Modifier.fillMaxWidth().padding(top = 12.dp)) {
+            c.write { val why = release(p); say(why ?: tr("${p.name} поселился здесь. Заходите в гости!", "${p.name} settled here. Drop by!")) }; release = false
         }
     }
     if (rename) {

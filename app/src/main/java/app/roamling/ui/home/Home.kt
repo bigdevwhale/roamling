@@ -276,20 +276,32 @@ private fun Den(d: Data, nav: Nav, night: Float) {
             val s = W * if (pos.third) .17f else .1f
             Box(Modifier.offset(x(pos.first) - s / 2, y(pos.second) - s).size(s).tap { nav.push(Screen.Shop) }) { Pic("decor_${th.id}", s) }
         }
-        // the den's dwellers on the floor, in rows
-        val pets = d.den.take(12)
-        pets.forEachIndexed { i, p ->
-            val row = i / 4; val col = i % 4
-            val s = W * (.19f - row * .02f)
-            val fx = .16f + col * .225f + (if (row % 2 == 1) .06f else 0f)
-            val fy = listOf(.80f, .88f, .73f)[row]
-            Box(Modifier.offset(x(fx) - s / 2, y(fy) - s).size(s).tap { nav.push(Screen.PetInfo(p.id)) }) {
-                PetArt(p, s, pose = if (night > .7f) Pose.SLEEP else Pose.IDLE, phase = i * .23f, flip = col % 2 == 1)
+        // the den's dwellers on the floor: staggered rows, so a head in front falls between two behind and nobody sits on anybody (#14);
+        // the first ones take the middle, and the far ones are drawn first
+        d.den.take(DEN_SPOTS.size).mapIndexed { i, p -> Triple(i, p, DEN_SPOTS[i]) }.sortedBy { it.third.y }.forEach { (i, p, spot) ->
+            val s = W * spot.size
+            Box(Modifier.offset(x(spot.x) - s / 2, y(spot.y) - s).size(s).tap { nav.push(Screen.PetInfo(p.id)) }) {
+                PetArt(p, s, pose = if (night > .7f) Pose.SLEEP else Pose.IDLE, phase = i * .23f, flip = spot.x > .5f)
             }
         }
         if (d.den.isEmpty()) Text(tr("Здесь отдыхают те, кто не в рюкзаке.", "Those not in the backpack rest here."), style = T.small.copy(color = Color(0xFFF1E3C4)),
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = 24.dp))
     }
+}
+
+/** A place on the den's floor: centre x and foot y as shares of the picture, size as a share of its width. */
+private class Spot(val x: Float, val y: Float, val size: Float)
+
+/**
+ * Where the den's dwellers sit, in the order they fill. Three rows on the floor (picture .70–.90): far ones smaller,
+ * each row half a step aside from the next and about ¾ of a body lower, so only the corners overlap.
+ */
+private val DEN_SPOTS = run {
+    val far = listOf(.41f, .59f, .23f, .77f).map { Spot(it, .72f, .14f) }
+    val mid = listOf(.50f, .32f, .68f, .14f, .86f).map { Spot(it, .80f, .16f) }
+    val near = listOf(.41f, .59f, .23f, .77f).map { Spot(it, .885f, .18f) }
+    // fill: near middle, mid middle, far middle, then outwards
+    listOf(near[0], near[1], mid[0], far[0], far[1], mid[1], mid[2], near[2], near[3], far[2], far[3], mid[3], mid[4])
 }
 
 /** Places for the den's things: shelves (small) and the floor (big). x, foot y, big. */

@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import app.roamling.container
 import app.roamling.data.Pet
 import app.roamling.data.parseMap
 import app.roamling.domain.Group
@@ -87,20 +88,24 @@ fun habitatOf(p: Pet, sp: Species): String {
  * The companion in its own world. A tap makes it jump for joy with hearts flying up; the name and stage sit on a little tag.
  */
 @Composable
-fun PetHero(p: Pet, sp: Species, stage: String, onSpecies: () -> Unit) {
+fun PetHero(p: Pet, sp: Species, stage: String, pattedToday: Boolean, onSpecies: () -> Unit) {
     val ctx = LocalContext.current
+    val c = ctx.container
     val bg = Art.get(ctx, habitatOf(p, sp))
     val scope = rememberCoroutineScope()
     val joy = remember { Animatable(0f) }
     var pets by remember { mutableIntStateOf(0) }
+    // a pat: it jumps for joy; the first one of the day warms its heart (#12)
+    val onPat = {
+        pets++
+        scope.launch { joy.snapTo(0f); joy.animateTo(1f, tween(1400)) }
+        if (!pattedToday && p.stage > 0) c.write { if (this.pat(p)) say(tr("${p.name} жмурится от радости · +¼ сердечка", "${p.name} beams with joy · +¼ heart")) }
+    }
     BoxWithConstraints(Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(16.dp)).background(C.card2)) {
         val W = maxWidth; val H = maxHeight
         if (bg != null) androidx.compose.foundation.Image(bg, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop, filterQuality = FilterQuality.Low)
         val s = W * .56f
-        Box(Modifier.align(Alignment.BottomCenter).offset(y = -(H * .1f)).size(s).clickable(remember { MutableInteractionSource() }, null) {
-            pets++
-            scope.launch { joy.snapTo(0f); joy.animateTo(1f, tween(1400)) }
-        }) {
+        Box(Modifier.align(Alignment.BottomCenter).offset(y = -(H * .1f)).size(s).clickable(remember { MutableInteractionSource() }, null) { onPat() }) {
             PetArt(p, s, pose = if (joy.value in .01f..0.99f) Pose.CHEER else Pose.IDLE)
         }
         // hearts float up while it is happy
@@ -122,8 +127,14 @@ fun PetHero(p: Pet, sp: Species, stage: String, onSpecies: () -> Unit) {
             if (p.shiny) Text(" ✦", style = T.smallB.copy(color = C.gold))
         }
         if (p.gear.isNotEmpty()) Pic("gear_${p.gear}", 46.dp, Modifier.align(Alignment.TopEnd).padding(8.dp))
-        if (pets == 0) Text(tr("погладьте", "give a pat"), style = T.tiny.copy(color = Color(0xFFFBF5E4)),
-            modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp).clip(RoundedCornerShape(50)).background(Color(0x66000000)).padding(horizontal = 8.dp, vertical = 2.dp))
+        // a real button, not a hint: people pressed the hint and nothing happened (#12)
+        if (p.stage > 0) Row(Modifier.align(Alignment.BottomEnd).padding(10.dp).clip(RoundedCornerShape(50))
+            .background(if (pattedToday) Color(0x66000000) else Color(0xE6FBF5E4)).clickable { onPat() }.padding(horizontal = 10.dp, vertical = 5.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Ico("heart", 16.dp)
+            Text(if (pattedToday) tr("сегодня уже гладили", "patted today") else tr("Погладить", "Give a pat"),
+                style = (if (pattedToday) T.tiny else T.smallB).copy(color = if (pattedToday) Color(0xFFFBF5E4) else Color(0xFF2E2618)), modifier = Modifier.padding(start = 4.dp))
+        }
     }
 }
 

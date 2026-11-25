@@ -57,6 +57,42 @@ object Growth {
     fun mark(p: Pet): Sky? = parseMap(p.skies).filter { runCatching { Sky.valueOf(it.key).notable }.getOrDefault(false) && it.value >= 1500 }
         .maxByOrNull { it.value }?.let { Sky.valueOf(it.key) }
 
+    /**
+     * How far the fog parts around the walker, in metres: the older the leader, the wider (#13).
+     * A bottled breeze doubles it while it blows.
+     */
+    fun reveal(leaderStage: Int, breeze: Boolean): Double =
+        (when (leaderStage) { 3 -> 35.0; 2 -> 30.0; else -> 25.0 }) * (if (breeze) 2.0 else 1.0)
+
+    /** Hearts a pat adds, once a day (#12). */
+    const val PAT_BOND = 0.25
+
+    /** How long a bottled breeze blows. */
+    const val BREEZE_MS = 30 * 60_000L
+
+    /** The taste of places it loves: its grown form's, else what a teen ate most, else its kind's. */
+    fun loves(p: Pet): Taste {
+        val sp = Catalog[p.species]
+        if (p.stage == 3 && p.form >= 0) return sp.forms[p.form].taste
+        if (p.stage == 2) parseMap(p.diet).maxByOrNull { it.value }?.key?.let { k -> runCatching { Taste.valueOf(k) }.getOrNull() }?.let { return it }
+        return when (sp.group) { Group.WATER -> Taste.WATER; Group.STONE -> Taste.STONE; Group.HEIGHT -> Taste.HEIGHT; Group.TIME, Group.LEGEND -> Taste.DUSK; Group.WEATHER -> Taste.SKY; else -> Taste.GREEN }
+    }
+
+    /** Others of its species that hatched or joined before it: it is a twin when there are any (#7). */
+    fun twinsOf(p: Pet, pets: List<Pet>): List<Pet> = pets.filter { it.species == p.species && it.id != p.id && it.stage > 0 }
+
+    /** Grown forms of its species nobody of yours has yet, by index. */
+    fun formsMissing(species: String, pets: List<Pet>): List<Int> {
+        val have = pets.filter { it.species == species && it.stage == 3 && it.form >= 0 }.map { it.form }.toSet()
+        return Catalog[species].forms.indices.filter { it !in have }
+    }
+
+    /** Cones for letting a twin go, per stage; and a resident's weekly gift, twice in a place it loves. */
+    const val RELEASE_CONES = 10
+    const val VISIT_CONES = 8
+    /** A resident makes itself at home before its first gift. */
+    const val SETTLE_MS = 12 * 3_600_000L
+
     fun frame(p: Pet): Int = when (p.stage) { 1 -> 0; 2 -> 1; else -> Catalog[p.species].formFrame(max(0, p.form)) }
 }
 
@@ -227,7 +263,7 @@ object Shop {
         val help get() = tr(helpRu, helpEn)
     }
     const val GEAR = 0; const val DECOR = 1; const val OTHER = 2
-    const val LURE = 30; const val STONE = 200; const val POCKET = 150
+    const val LURE = 30; const val STONE = 200; const val POCKET = 150; const val BREEZE = 40
     /** Growth in the weather a piece of gear is for. */
     const val GEAR_BONUS = 1.3
 

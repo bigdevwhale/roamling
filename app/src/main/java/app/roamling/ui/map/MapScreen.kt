@@ -150,6 +150,8 @@ fun MapScreen(d: Data, nav: Nav, live: Live) {
         seals = d.s.seals.mapValues { (_, v) -> runCatching { app.roamling.domain.Spirit.valueOf(v.substringBefore('|')).seal }.getOrDefault(4) },
         keeper = d.letters >= 3 && d.s.finale == 0L && (System.currentTimeMillis() / 60_000 % 10) < 3,
         homeDistrict = d.home, hereDistrict = live.fix?.let { app.roamling.domain.Story.sectorOf(it.lat, it.lon) }, kinds = kinds,
+        residents = d.s.residents.mapNotNull { r -> d.byId[r.pet]?.let { p ->
+            Dweller(p.id, r.lat, r.lon, "pet_${p.species}_${Growth.frame(p)}", d.entries.none { it.ref == "visit:${p.id}:${d.monday}" } && now - r.at >= Growth.SETTLE_MS) } },
     )
     LaunchedEffect(Unit) { lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) { while (true) { map.invalidate(); delay(50) } } }
     val fix = live.fix
@@ -234,10 +236,22 @@ private fun WalkPanel(d: Data, live: Live) {
             }
             Text(Taste.entries.filter { (eaten[it.name] ?: 0.0) > 0 }.joinToString(" · ") { "${it.title} ${fmt(((eaten[it.name] ?: 0.0)).roundToInt())} ${tr("м", "m")}" }, style = T.tiny, modifier = Modifier.padding(top = 4.dp))
         }
-        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            if (d.s.lures > 0) Ghost(tr("Приманка · ${d.s.lures}", "Lure · ${d.s.lures}"), Modifier.weight(1f), small = true) {
+        val blowing = (d.s.breezeUntil - System.currentTimeMillis()).also { tick }
+        if (blowing > 0) Text(tr("Ветерок дует ещё ${(blowing / 60_000 + 1)} мин – туман расходится вдвое шире", "The breeze blows ${(blowing / 60_000 + 1)} min more – the fog parts twice as wide"),
+            style = T.tiny.copy(color = C.acc), modifier = Modifier.padding(top = 8.dp))
+        // the backpack's things in a row of their own when there are two, so no label is cut short
+        val both = d.s.breezes > 0 && d.s.lures > 0
+        @Composable fun Things(m: (Float) -> Modifier) {
+            if (d.s.breezes > 0) Ghost(tr("Ветерок · ${d.s.breezes}", "Breeze · ${d.s.breezes}"), m(1f), small = true) {
+                c.write { if (walker.breeze()) say(tr("Ветерок выпущен: полчаса туман тает шире", "The breeze is out: the fog melts wider for half an hour")) }
+            }
+            if (d.s.lures > 0) Ghost(tr("Приманка · ${d.s.lures}", "Lure · ${d.s.lures}"), m(1f), small = true) {
                 c.write { if (!walker.lure()) say(tr("Сейчас никто не придёт: не та погода и не тот час", "Nobody will come now: wrong weather, wrong hour")) }
             }
+        }
+        if (both) Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) { Things { Modifier.weight(it) } }
+        Row(Modifier.fillMaxWidth().padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            if (!both) Things { Modifier.weight(it) }
             Btn(tr("Закончить прогулку", "Finish the walk"), Modifier.weight(1.4f), small = true) { WalkService.stop(c.app) }
         }
     }
@@ -283,6 +297,17 @@ private fun PickCard(p: Pick, d: Data, live: Live, onClose: () -> Unit) {
                         "${sp.title} sleeps here. Patches walked ${(dist.share * 100).toInt()}% of 50%, dwellers met ${dist.metCount} of 3."), style = T.body, modifier = Modifier.padding(top = 6.dp))
                 if (known) Row(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     dist.residents.forEach { r -> app.roamling.ui.art.Mini(r.id, 48.dp, dim = r.id !in dist.met) }
+                }
+            }
+            is Pick.OfResident -> {
+                val pet = d.byId[p.pet]
+                val r = d.residents[p.pet]
+                if (pet != null && r != null) {
+                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { app.roamling.ui.art.PetArt(pet, 120.dp) }
+                    Text(tr("${pet.name} живёт здесь", "${pet.name} lives here"), style = T.h2)
+                    Text((if (d.entries.any { it.ref == "visit:${pet.id}:${d.monday}" }) tr("На этой неделе вы уже виделись. ", "You've met this week already. ")
+                        else if (System.currentTimeMillis() - r.at < Growth.SETTLE_MS) tr("Обживается – первый подарок будет завтра. ", "Settling in – the first gift comes tomorrow. ")
+                        else tr("Подойдите – вынесет подарок. ", "Come closer – it will bring a gift. ")) + dist(r.lat, r.lon), style = T.body)
                 }
             }
             Pick.Rainbow -> {
